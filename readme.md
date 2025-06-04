@@ -18,7 +18,7 @@
   The usage instructions from the original project are still relevant:
   Visit [Plexer (Original)](https://eliasthecactus.github.io/Plexer/) for HTTPS or use [HTTP Plexer (Original)](http://plexer.rf.gd/) if the Plex Server runs on HTTP.
 
-  **Note for Plexer Reborn:** Web version: [https://plexer-reborn.vercel.app/](https://plexer-reborn.vercel.app/).
+  **Plexer Reborn:** Web version: [https://plexer-reborn.vercel.app/](https://plexer-reborn.vercel.app/).
 
   ## ✨ Plexer Reborn - New Features & Improvements
 
@@ -29,6 +29,7 @@
   *   **Enhanced Media Interactions:**
       *   Tabular episode list with checkboxes for custom M3U creation.
       *   Inline video player for movies and episodes.
+        *   (Note: Inline video playback is currently only compatible with Chromium-based browsers.)
       *   Direct download, JDownloader integration, link copying, and M3U creation for individual episodes, seasons, and movies.
   *   **Search History:** Saves and displays previous search queries.
   *   **Planned: Bookmarks:** Functionality to save and manage bookmarks for media items.
