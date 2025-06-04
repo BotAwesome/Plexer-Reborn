@@ -1,0 +1,1046 @@
+@font-face {
+    font-family: 'inter';
+    src: URL('inter.ttf') format('truetype');
+}
+
+:root {
+    --primary-bg: #1A1D21; /* Sehr dunkles, fast schwarzes desaturiertes Blau */
+    --secondary-bg: #2C303A; /* Dunkles Grau-Blau (Sidebar, Karten) */
+    --secondary-bg-lighter: #353A45; /* Für Verläufe */
+    --accent-color: #4DD0E1; /* Leuchtendes Türkis */
+    --accent-color-hover: #63D9E8; /* Heller für Hover */
+    --accent-color-glow: rgba(77, 208, 225, 0.3); /* Für Glow-Effekte */
+    --text-primary: #ECEFF1; /* Etwas heller */
+    --text-secondary: #B0BEC5; /* Etwas heller */
+    --border-color: rgba(255, 255, 255, 0.08); /* Etwas weicher */
+    --sidebar-width: 260px;
+    --main-header-height: 70px;
+    --default-border-radius: 8px; /* Etwas größere Rundung */
+    --font-family-sans-serif: 'inter', sans-serif;
+    --shadow-soft: 0 4px 15px rgba(0,0,0,0.2);
+    --shadow-medium: 0 6px 20px rgba(0,0,0,0.25);
+    --shadow-strong: 0 8px 30px rgba(0,0,0,0.3);
+}
+
+* {
+    font-family: var(--font-family-sans-serif);
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-weight: 400;
+}
+
+html {
+    overflow-x: hidden;
+    background: var(--primary-bg);
+    color: var(--text-primary);
+    font-size: 16px; /* Basis Schriftgröße */
+    /* Smoother scrolling */
+    scroll-behavior: smooth;
+}
+
+body {
+    width: 100vw;
+    height: 100vh;
+    display: flex; /* Für Sidebar und Main Content Layout */
+    background: var(--primary-bg);
+}
+
+/* --- Sidebar --- */
+.sidebar {
+    width: var(--sidebar-width);
+    height: 100vh;
+    background-image: linear-gradient(180deg, var(--secondary-bg-lighter) 0%, var(--secondary-bg) 100%); /* Subtiler Verlauf */
+    padding: 25px 20px;
+    display: flex;
+    flex-direction: column;
+    position: fixed; /* Feste Sidebar */
+    left: 0;
+    top: 0;
+    box-shadow: var(--shadow-medium); /* Weicherer Schatten */
+    border-right: 1px solid var(--border-color); /* Feiner Rand rechts */
+}
+
+.logo-sidebar {
+    color: var(--text-primary);
+    font-size: 2.5rem; /* Etwas kleiner als vorher */
+    text-decoration: none;
+    font-weight: 600; /* Etwas fetter */
+    margin-bottom: 35px; /* Mehr Abstand */
+    text-align: left;
+    display: block; /* Sicherstellen, dass der Link Block-Level ist für das Bild */
+}
+
+.logo-sidebar-image {
+    max-width: 100%; /* Stellt sicher, dass das Bild nicht breiter als die Sidebar wird */
+    height: auto; /* Behält das Seitenverhältnis bei */
+    display: block; /* Verhindert zusätzlichen Leerraum unter dem Bild */
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Abstand zwischen Nav-Links */
+    margin-bottom: auto; /* Schiebt User Actions nach unten */
+}
+
+.sidebar-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.95rem; /* Leicht angepasst */
+    padding: 13px 18px; /* Angepasst */
+    border-radius: var(--default-border-radius);
+    display: flex;
+    align-items: center;
+    gap: 12px; /* Mehr Platz für Icon */
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.15s ease; /* Transform hinzugefügt */
+    font-weight: 500; /* Etwas mehr Gewicht */
+}
+
+.sidebar-link:hover {
+    background-color: rgba(255, 255, 255, 0.03); /* Sehr subtil */
+    color: var(--text-primary);
+}
+
+.sidebar-link.active {
+    background-color: var(--accent-color); /* Aktiver Link mit Akzentfarbe */
+    color: var(--primary-bg); /* Dunkler Text auf Akzentfarbe */
+    font-weight: 600;
+    box-shadow: 0 0 15px var(--accent-color-glow); /* Glow für aktiven Link */
+}
+
+.sidebar-link.active:hover {
+    background-color: var(--accent-color-hover);
+    color: var(--primary-bg);
+}
+
+.sidebar-user-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* --- Main Content --- */
+.main-content {
+    flex-grow: 1;
+    height: 100vh;
+    margin-left: var(--sidebar-width); /* Platz für die Sidebar schaffen */
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto; /* Scrollbar für den Hauptinhalt, falls nötig */
+}
+
+.main-header {
+    height: var(--main-header-height);
+    min-height: var(--main-header-height);
+    background: var(--primary-bg); /* Kann auch --secondary-bg sein, je nach Design */
+    padding: 0 30px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start; /* Suchleiste linksbündig */
+    border-bottom: 1px solid var(--border-color);
+    /* box-shadow: 0 2px 5px rgba(0,0,0,0.1); */ /* Optionaler Schatten */
+    position: sticky; /* Header bleibt oben beim Scrollen im Main Content */
+    top: 0;
+    z-index: 900; /* Unter Sidebar, aber über Inhalt */
+}
+
+.div_search {
+    width: 100%;
+    max-width: 600px; /* Maximale Breite für Suchbereich */
+}
+
+.div_search form {
+    position: relative; /* Wichtig für Suchverlauf */
+    display: flex;
+}
+
+.searchbar {
+    flex-grow: 1;
+    border: 1px solid var(--border-color);
+    border-right: none;
+    border-radius: var(--default-border-radius) 0 0 var(--default-border-radius);
+    background: var(--secondary-bg-lighter); /* Etwas heller */
+    outline: none;
+    padding: 14px 18px; /* Mehr Padding */
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.searchbar::placeholder {
+    color: var(--text-secondary);
+    opacity: 1;
+}
+
+.searchbar:focus {
+    background: var(--secondary-bg); /* Dunkler bei Fokus */
+    border-color: var(--accent-color);
+    box-shadow: 0 0 10px var(--accent-color-glow); /* Glow bei Fokus */
+}
+
+.searchbutton {
+    padding: 14px 22px; /* Mehr Padding */
+    border-radius: 0 var(--default-border-radius) var(--default-border-radius) 0;
+    border: 1px solid var(--accent-color);
+    border-left: none;
+    font-size: 0.95rem;
+    background: var(--accent-color);
+    color: var(--primary-bg); /* Dunkler Text auf hellem Akzentbutton */
+    font-weight: 600; /* Fetter */
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+}
+
+.searchbutton:hover {
+    background: var(--accent-color-hover);
+    border-color: var(--accent-color-hover);
+    box-shadow: 0 0 15px var(--accent-color-glow); /* Stärkerer Glow beim Hover */
+}
+
+.div_body_main { /* Container für div_bodycontent */
+    flex-grow: 1;
+    padding: 30px; /* Haupt-Padding für den Inhaltsbereich */
+    overflow-y: auto; /* Falls dieser Bereich auch mal scrollen muss, separat vom main-content */
+}
+
+.div_bodycontent {
+    display: flex;
+    flex-direction: row; /* Karten nebeneinander */
+    flex-wrap: wrap; /* Umbruch bei Bedarf */
+    justify-content: center; /* Zentriert die Karten-Reihe, falls nicht voll */
+    width: 100%;
+    gap: 25px;
+}
+
+/* --- Popups (leicht angepasst) --- */
+.div_popup {
+    display: none; 
+    align-items: center;
+    justify-content: flex-start; /* Inhalt oben beginnen lassen */
+    flex-direction: column;
+    padding: 35px 40px 40px; /* Mehr Padding, besonders unten */
+    position: fixed;
+    max-width: 1200px; /* Geändert von 480px auf 1200px */
+    width: calc(100% - 40px); /* Responsive Breite mit Seitenabstand */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-image: linear-gradient(160deg, var(--secondary-bg-lighter) 0%, var(--secondary-bg) 100%);
+    border-radius: 10px; /* Etwas größere Rundung */
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255,255,255,0.05); /* Tieferer Schatten + feiner heller Rand */
+    backdrop-filter: blur(15px); 
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255,255,255,0.07); /* Feiner, leicht sichtbarer Rand */
+    z-index: 10000;
+    /* Animation für das Erscheinen */
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.95);
+    transition: opacity 0.25s ease-out, transform 0.25s ease-out;
+}
+
+/* Stil, wenn Popup sichtbar ist (wird von JS per style.display gesteuert, wir fügen Klasse für Animation hinzu) */
+.div_popup.visible {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.p_popup_title {
+    font-size: 1.6rem; /* Leicht reduziert für Balance */
+    margin-bottom: 30px; /* Mehr Abstand nach unten */
+    font-weight: 600;
+    color: var(--text-primary);
+    width: 100%;
+    text-align: center;
+    padding-bottom: 15px; /* Platz für Trennlinie */
+    border-bottom: 1px solid var(--border-color); /* Subtile Trennlinie */
+}
+
+.logininput, 
+.input_download_section_inner {
+    margin-bottom: 20px; /* Mehr Abstand zwischen Feldern */
+    border: 1px solid var(--border-color);
+    border-radius: var(--default-border-radius);
+    background: var(--primary-bg); /* Klarer Kontrast zum Popup-BG */
+    outline: none;
+    padding: 15px 18px; /* Angepasstes Padding */
+    color: var(--text-primary);
+    width: 100%;
+    font-size: 0.95rem;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.logininput::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.8;
+}
+
+.logininput:focus, 
+.input_download_section_inner:focus {
+    background: var(--primary-bg); /* Bleibt dunkel für Konsistenz */
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px var(--accent-color-glow); /* Deutlicherer Fokus-Indikator */
+}
+
+.loginbutton, 
+.downloadbutton {
+    padding: 15px 22px; /* Angepasstes Padding */
+    border-radius: var(--default-border-radius);
+    border: none;
+    font-size: 1rem; /* Etwas größer */
+    background: var(--accent-color);
+    color: var(--primary-bg);
+    font-weight: 600;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+    width: 100%;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.loginbutton:hover, 
+.downloadbutton:hover {
+    background: var(--accent-color-hover);
+    box-shadow: 0 4px 10px var(--accent-color-glow); 
+}
+
+.loginbutton:active, /* Klick-Effekt */
+.downloadbutton:active {
+    background-color: var(--accent-color); /* Zurück zur Haupt-Akzentfarbe */
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); /* Innerer Schatten für Klick */
+}
+
+.closebutton {
+    font-weight: 500; /* Nicht zu fett */
+    position: absolute;
+    right: 20px; /* Etwas mehr Abstand vom Rand */
+    top: 20px;   /* Etwas mehr Abstand vom Rand */
+    cursor: pointer;
+    font-size: 1.6rem; /* Größer für bessere Klickbarkeit */
+    color: var(--text-secondary);
+    transition: color 0.2s ease, transform 0.2s ease;
+    padding: 5px; /* Klickbereich vergrößern */
+    line-height: 1; /* Verhindert Verschiebung */
+}
+
+.closebutton:hover {
+    color: var(--accent-color);
+    transform: rotate(90deg); /* Kleine Rotation beim Hover */
+}
+
+/* --- Media Cards (Neue Styles) --- */
+.mc-card { /* Ersetzt .div_mediaCard_new */
+    display: flex;
+    flex-direction: column; /* Bild oben, Details unten */
+    width: 100%;
+    max-width: 380px; /* Breite der Karten, anpassbar */
+    background-color: var(--secondary-bg-lighter); /* Leicht hellerer Hintergrund für die Karte */
+    border-radius: var(--default-border-radius); /* Globale Rundung */
+    box-shadow: var(--shadow-medium); /* Weicher, mittlerer Schatten */
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    transition: transform 0.25s ease-out, box-shadow 0.25s ease-out;
+    margin-bottom: 25px; /* Stellt sicher, dass ein Abstand vorhanden ist, wenn flex-gap nicht greift */
+}
+
+.mc-card:hover {
+    box-shadow: var(--shadow-strong);
+}
+
+.mc-image-area {
+    position: relative; /* Für das Overlay */
+    width: 100%;
+    /* Aspect Ratio für das Bild (z.B. 2:3). Höhe wird automatisch berechnet. */
+    /* padding-top: 150%;  Alternative, falls feste Höhe nicht gewünscht. */
+    height: 450px; /* Feste Höhe für den Bildbereich, anpassbar */
+    overflow: hidden;
+}
+
+.mc-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Bild füllt den Bereich, wird ggf. beschnitten */
+    display: block;
+    transition: transform 0.3s ease-out;
+}
+
+.mc-card:hover .mc-image {
+}
+
+.mc-image-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 20px 15px 15px; /* Mehr Padding unten */
+    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 60%, rgba(0,0,0,0) 100%);
+    color: var(--text-primary);
+    transition: opacity 0.3s ease;
+}
+
+.mc-title-overlay {
+    font-size: 1.4rem; /* Größerer Titel im Overlay */
+    font-weight: 600;
+    margin: 0 0 5px 0;
+    line-height: 1.2;
+    /* Für mehrzeilige Titel, die abgeschnitten werden sollen: */
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* Zeilenanzahl */
+    -webkit-box-orient: vertical;  
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mc-meta-overlay {
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+    margin: 0;
+    text-transform: capitalize;
+}
+
+.mc-details-area {
+    padding: 15px 20px 20px; /* Padding für den Detailbereich */
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Abstand zwischen den Sektionen im Detailbereich */
+}
+
+.mc-summary {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    max-height: 70px; /* Ca. 3 Zeilen, Rest mit ... */
+    overflow: hidden;
+    /* CSS für Text-Ellipsis nach X Zeilen (zuverlässiger als JS-substring) */
+    display: -webkit-box;
+    -webkit-line-clamp: 3; /* Zeilenanzahl */
+    -webkit-box-orient: vertical;  
+    text-overflow: ellipsis;
+}
+
+.mc-meta-full {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.mc-meta-full .mc-general-info {
+    margin-bottom: 5px;
+}
+
+.mc-meta-full .mc-rating {
+    font-weight: 500;
+}
+
+/* Beibehaltung der Rating-Farben */
+.mc-rating.good { color: #66BB6A; } /* Helles Grün */
+.mc-rating.okay { color: #FFEE58; } /* Gelb */
+.mc-rating.bad { color: #FFA726; }  /* Orange */
+.mc-rating.worst { color: #EF5350; } /* Rot */
+
+.mc-actions {
+    display: flex;
+    flex-wrap: wrap; /* Falls mehrere Buttons nicht in eine Zeile passen */
+    gap: 10px; /* Abstand zwischen den Aktionsbuttons */
+    margin-top: auto; /* Schiebt Buttons nach unten, falls Platz ist */
+}
+
+.mc-action-button {
+    flex-grow: 1; /* Buttons teilen sich den verfügbaren Platz */
+    text-align: center;
+    padding: 10px 15px;
+    background-color: var(--accent-color);
+    color: var(--primary-bg);
+    border-radius: var(--default-border-radius);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+    border: none;
+}
+
+.mc-action-button:hover {
+    background-color: var(--accent-color-hover);
+    box-shadow: 0 2px 10px var(--accent-color-glow);
+}
+
+.mc-no-actions {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* --- Suchverlauf (Styles bleiben weitgehend, ggf. Farben anpassen) --- */
+.search-history-container {
+    display: none;
+    position: absolute;
+    background-color: var(--secondary-bg-lighter); /* Heller für Verlauf */
+    border: 1px solid var(--border-color);
+    border-top: none;
+    border-radius: 0 0 var(--default-border-radius) var(--default-border-radius);
+    box-shadow: var(--shadow-medium); /* Weicher Schatten */
+    width: 100%; /* Nimmt die volle Breite der Form ein */
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    left: 0;
+    top: 100%;
+}
+
+.search-history-item {
+    padding: 10px 15px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.search-history-item:last-child {
+    border-bottom: none;
+}
+
+.search-history-item-text {
+    cursor: pointer;
+    flex-grow: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    padding-right: 10px;
+}
+
+.search-history-item-text:hover {
+    color: var(--accent-color);
+}
+
+.search-history-item-delete {
+    cursor: pointer;
+    padding: 0px 5px;
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    line-height: 1;
+}
+
+.search-history-item-delete:hover {
+    color: var(--accent-color);
+}
+
+/* --- Message Box --- */
+#messagebox {
+    position: fixed;
+    background: var(--secondary-bg-lighter); /* Angepasst */
+    color: var(--text-primary);
+    left: auto; /* Neupositionierung */
+    right: 20px;
+    bottom: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--default-border-radius);
+    padding: 12px 18px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    box-shadow: var(--shadow-medium); /* Weicherer Schatten */
+    display: none;
+    z-index: 20000;
+}
+
+/* Entferne alte oder nicht mehr benötigte Styles */
+/* .div_head, .logo, .div_change_state, .a_change_state (alte Versionen), .disabled (ggf. neu definieren, falls noch gebraucht) */
+/* .div_mediaCard (alte Version) und seine Unterklassen könnten größtenteils wegfallen oder müssen an .div_mediaCard_new angepasst werden. */
+
+/* Spezifische alte Klassen, die nicht mehr passen: */
+.div_head {
+    /* Veraltet, ersetzt durch .sidebar und .main-header */
+}
+.logo {
+    /* Veraltet, ersetzt durch .logo-sidebar */
+}
+.div_body {
+    /* Veraltet, Struktur ist jetzt .main-content > .div_body_main */
+}
+.a_change_state {
+    /* Veraltet, .sidebar-link übernimmt diese Funktionalität */
+}
+
+/* Responsive Anpassungen (Beispiel, muss ggf. erweitert werden) */
+@media only screen and (max-width: 768px) {
+    .sidebar {
+        /* Hier könnte die Sidebar z.B. standardmäßig ausgeblendet und per Button eingeblendet werden */
+        /* Für den Moment machen wir sie schmaler oder lassen sie für die Demo so */
+        width: 200px;
+    }
+    .main-content {
+        margin-left: 200px;
+    }
+    .div_cover_wrapper_new {
+        flex-basis: 120px;
+        height: 180px;
+}
+    .div_details_wrapper_new {
+        min-height: 180px;
+        padding: 15px;
+    }
+    .div_title_wrapper_new .p_mediaCard_Title {
+        font-size: 1.3rem;
+    }
+}
+
+@media only screen and (max-width: 600px) {
+    .sidebar {
+        display: none; /* Sidebar auf sehr kleinen Bildschirmen ausblenden (Button-Lösung nötig) */
+    }
+    .main-content {
+        margin-left: 0;
+    }
+    .main-header {
+        padding: 0 15px;
+}
+    .div_search {
+        max-width: 100%;
+    }
+    .div_body_main {
+        padding: 15px;
+    }
+    .div_mediaCard_new {
+        flex-direction: column; /* Karten untereinander auf kleinen Screens */
+        max-width: 100%;
+    }
+    .div_cover_wrapper_new {
+        flex-basis: auto; /* Breite automatisch */
+        width: 100%;
+        height: 200px; /* Feste Höhe oder Aspect Ratio Box */
+    }
+    .div_details_wrapper_new {
+        min-height: auto;
+    }
+    #messagebox {
+        width: calc(100% - 40px);
+        left: 20px;
+        right: 20px;
+        bottom: 10px;
+    }
+}
+
+/* Überbleibsel alter Styles aufräumen */
+.disabled { /* Definition für .disabled beibehalten oder anpassen, falls JS es noch setzt */
+    cursor: not-allowed !important; /* Wichtig, um andere Cursor zu überschreiben */
+    opacity: 0.4 !important; /* Etwas stärker */
+    color: var(--text-secondary) !important;
+    background-color: transparent !important;
+}
+
+/* Styles für Serien-/Staffel-/Episoden-Auswahl im Popup */
+.div_mediaSelector {
+    width: 100%;
+    max-height: 40vh; /* Begrenzte Höhe, damit es nicht das Popup sprengt */
+    overflow-y: auto;
+    padding: 10px 0px 10px 0px; /* Nur Top/Bottom Padding, da der innere Container jetzt Rechts-Padding für Scrollbar hat */
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Abstand zwischen den Auswahl-Elementen */
+}
+
+/* Für Firefox - schmalere Scrollbar */
+.div_mediaSelector {
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-color) transparent;
+}
+
+/* Für Webkit-Browser (Chrome, Safari, etc.) - schmalere Scrollbar */
+.div_mediaSelector::-webkit-scrollbar {
+    width: 8px;
+}
+
+.div_mediaSelector::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.div_mediaSelector::-webkit-scrollbar-thumb {
+    background-color: var(--accent-color);
+    border-radius: 4px;
+}
+
+.div_mediaSelector_specific {
+    display: flex; 
+    justify-content: space-between; 
+    align-items: stretch; /* Stellt sicher, dass Kinder die volle Höhe einnehmen */
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.a_mediaSelector {
+    flex-grow: 1;
+    text-decoration: none;
+    padding: 12px 15px; /* Beibehaltung des Paddings für den Textfluss */
+    border-radius: var(--border-radius-medium);
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--text-color-light);
+    transition: background-color 0.2s ease, color 0.2s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 8px; 
+    display: flex; /* Um den Text vertikal zentrieren zu können, falls nötig */
+    align-items: center; /* Vertikale Zentrierung des Textes im Link */
+}
+
+.a_mediaSelector:hover {
+    background-color: var(--accent-color-hover-transparent);
+    color: var(--accent-color-text-hover);
+}
+
+/* Gemeinsame Stile für Aktionsbuttons im mediaSelector-Kontext */
+.a_mediaSelector_action_button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* padding: 8px; Entferne festes Padding, Höhe wird durch parent gesteuert */
+    /* Höhe wird implizit durch align-items: stretch im Parent gesetzt */
+    min-width: 40px; /* Mindestbreite, damit der Button nicht zu klein wird */
+    border-radius: var(--border-radius-medium);
+    background-color: rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    flex-shrink: 0; /* Verhindert, dass der Button schrumpft */
+}
+
+.a_mediaSelector_action_button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.jd_button_season .jd_button_icon, /* Gilt jetzt für beide JDownloader-Buttons */
+.jd_button_episode .jd_button_icon {
+    width: 20px; /* Leicht reduziert für bessere Proportionen bei gleicher Höhe */
+    height: 20px;
+    filter: invert(75%) sepia(10%) saturate(500%) hue-rotate(150deg) brightness(100%) contrast(85%); 
+}
+
+.jd_button_season:hover .jd_button_icon,
+.jd_button_episode:hover .jd_button_icon {
+    filter: invert(85%) sepia(20%) saturate(600%) hue-rotate(160deg) brightness(110%) contrast(90%); 
+}
+
+/* Styling für das neue Play-Button Icon (ähnlich dem JD-Icon) */
+.play_button_episode .play_button_icon {
+    width: 20px;
+    height: 20px;
+    filter: invert(75%) sepia(10%) saturate(500%) hue-rotate(150deg) brightness(100%) contrast(85%);
+}
+
+.play_button_episode:hover .play_button_icon {
+    filter: invert(85%) sepia(20%) saturate(600%) hue-rotate(160deg) brightness(110%) contrast(90%);
+}
+
+/* Spezifisches Styling für ALLE Aktionsbuttons mit Icon in der Media-Auswahl */
+.a_mediaSelector_action_button.jd_button_episode,
+.a_mediaSelector_action_button.jd_button_season,
+.a_mediaSelector_action_button.play_button_episode,
+.a_mediaSelector_action_button.direct_download_button {
+    justify-content: flex-start; /* Icon linksbündig im Button */
+    padding-left: 10px;          /* Kleiner Abstand links vom Icon */
+    padding-right: 10px;         /* Einheitlicher Abstand rechts vom Icon (vorher 20px nur für Play) */
+    /* Die Icons selbst (jd_button_icon, play_button_icon, direct_download_icon) haben bereits width/height: 20px */
+}
+
+/* Styling für das neue Direkt-Download-Icon (ähnlich den anderen Icons) */
+.direct_download_button .direct_download_icon {
+    width: 18px; /* Leicht reduziert für bessere visuelle Balance */
+    height: 18px; /* Leicht reduziert für bessere visuelle Balance */
+    filter: invert(75%) sepia(10%) saturate(500%) hue-rotate(150deg) brightness(100%) contrast(85%);
+}
+
+.direct_download_button:hover .direct_download_icon {
+    filter: invert(85%) sepia(20%) saturate(600%) hue-rotate(160deg) brightness(110%) contrast(90%);
+}
+
+/* Styling für das neue Link-Kopieren-Icon (ähnlich den anderen Icons) */
+.copy_link_button .copy_link_icon {
+    width: 18px; /* Angepasst für visuelle Balance, wie direct_download_icon */
+    height: 18px; /* Angepasst für visuelle Balance */
+    filter: invert(75%) sepia(10%) saturate(500%) hue-rotate(150deg) brightness(100%) contrast(85%);
+}
+
+.copy_link_button:hover .copy_link_icon {
+    filter: invert(85%) sepia(20%) saturate(600%) hue-rotate(160deg) brightness(110%) contrast(90%);
+}
+
+/* Styling für das Playlist-Icon (Staffel-M3U-Button) */
+.m3u_button_season .playlist_icon {
+    width: 18px; /* Konsistent mit anderen kürzlich hinzugefügten Icons */
+    height: 18px;
+    filter: invert(75%) sepia(10%) saturate(500%) hue-rotate(150deg) brightness(100%) contrast(85%);
+}
+
+.m3u_button_season:hover .playlist_icon {
+    filter: invert(85%) sepia(20%) saturate(600%) hue-rotate(160deg) brightness(110%) contrast(90%);
+}
+
+/* Styles für den Video Player Popup */
+.video_player_popup {
+    max-width: 90vw; /* Breiter als normale Popups */
+    width: 800px; /* Feste Breite, oder % für kleinere Screens */
+    padding-top: 60px; /* Mehr Platz oben für den Close-Button, falls Video nah am Rand ist */
+    padding-bottom: 30px;
+    /* Hintergrund und Schatten sind durch .div_popup bereits abgedeckt, können hier aber überschrieben werden */
+    /* z.B. dunklerer Hintergrund für Kino-Feeling */
+    /* background-image: linear-gradient(160deg, #181a1e 0%, #101214 100%); */
+}
+
+#videoPlayerContainer {
+    width: 100%;
+    height: auto; /* Passt sich der Video-Höhe an */
+    background-color: #000; /* Schwarzer Hintergrund für den Videobereich */
+    border-radius: var(--default-border-radius); /* Leichte Rundung für den Container selbst */
+    overflow: hidden; /* Stellt sicher, dass das Video die Rundung nicht durchbricht */
+}
+
+#videoPlayerContainer video {
+    display: block; /* Verhindert zusätzlichen Platz unter dem Video */
+    width: 100%;
+    height: auto; /* Behält das Seitenverhältnis bei */
+    max-height: calc(100vh - 180px); /* Max Höhe: Bildschirmhöhe minus Popup-Padding, Header, etc. */
+    outline: none; /* Entfernt den Fokus-Rahmen, falls vorhanden */
+}
+
+/* Styles für den Download-Bereich in popupDiv2 (sind größtenteils durch generische Popup-Styles abgedeckt) */
+.div_download_section {
+    width: 100%;
+    margin-top: 15px; /* Abstand, falls es nach .p_popup_title kommt */
+}
+
+.div_download_section_inner {
+    width: 100%;
+    display: flex;
+        flex-direction: column;
+    align-items: center;
+    gap: 15px; /* Abstand zwischen Input und Buttons */
+}
+
+/* .input_download_section_inner und .downloadbutton sind bereits global gestylt */
+/* .jdownloaderbutton könnte einen spezifischen Stil bekommen, wenn es nicht nur Text ist */
+.jdownloaderbutton {
+    /* Beispiel: Wenn es ein Icon-Button sein soll */
+    /* background-image: url('pfad/zum/jdownloader_icon.svg'); */
+    /* background-size: contain; */
+    /* background-repeat: no-repeat; */
+    /* width: 30px; */
+    /* height: 30px; */
+    /* text-indent: -9999px; */ /* Text verstecken, falls nur Icon */
+    /* display: inline-block; */
+    /* padding: 5px; */
+    /* border-radius: var(--default-border-radius); */
+    /* transition: opacity 0.2s ease; */
+    /* opacity: 0.8; */
+    color: var(--text-secondary); /* Falls es ein Textlink bleibt */
+    font-size: 0.85rem;
+    text-decoration: underline;
+}
+
+.jdownloaderbutton:hover {
+    /* opacity: 1; */
+    color: var(--accent-color);
+}
+
+/* Styling für den Container der Film-Popup-Aktionsbuttons */
+.movie_popup_actions {
+    display: flex;
+    justify-content: center; /* Buttons zentrieren oder space-around/etc. */
+    align-items: center;
+    gap: 15px; /* Abstand zwischen den Buttons */
+    width: 100%;
+    margin-top: 15px; /* Abstand zum Inputfeld darüber */
+}
+
+/* Basis-Styling für die reinen Icon-Buttons im Film-Popup (JDownloader, Play) */
+.movie_action_button_styled {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px; /* Ausreichend Klickfläche */
+    border-radius: var(--default-border-radius);
+    background-color: rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    border: 1px solid var(--border-color); /* Optionaler Rand */
+}
+
+.movie_action_button_styled:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.movie_action_icon {
+    width: 20px; /* Einheitliche Größe für Icons in diesen Buttons */
+    height: 20px;
+    filter: invert(75%) sepia(10%) saturate(500%) hue-rotate(150deg) brightness(100%) contrast(85%);
+}
+
+.movie_action_button_styled:hover .movie_action_icon {
+    filter: invert(85%) sepia(20%) saturate(600%) hue-rotate(160deg) brightness(110%) contrast(90%);
+}
+
+/* Der .downloadbutton (Text-Button) behält sein bestehendes Styling, 
+   aber wir können die Breite anpassen, damit er gut zu den Icon-Buttons passt, falls nötig. 
+   Hier wird er flexibler, wenn er Teil von .movie_popup_actions ist. */
+.movie_popup_actions .downloadbutton {
+    flex-grow: 1; /* Kann mehr Platz einnehmen, falls gewünscht */
+    max-width: 200px; /* Begrenzung, damit er nicht zu breit wird */
+}
+
+/* Container für die Episodenliste mit Checkboxen */
+.episode-list-container {
+    width: 100%; /* Nimmt die volle Breite des .div_mediaSelector ein */
+    max-height: calc(40vh - 50px); /* Höhe anpassen, um Platz für den Button darunter zu lassen */
+    overflow-y: auto; /* Eigene Scrollbar für die Liste, falls sie länger ist */
+    margin-bottom: 15px; /* Abstand zum "Create Custom M3U" Button */
+    /* Scrollbar-Styling von .div_mediaSelector hierher verschieben, wenn .div_mediaSelector selbst nicht mehr scrollen soll */
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-color) transparent;
+}
+
+.episode-list-container::-webkit-scrollbar {
+    width: 8px;
+}
+.episode-list-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+.episode-list-container::-webkit-scrollbar-thumb {
+    background-color: var(--accent-color);
+    border-radius: 4px;
+}
+
+
+/* Anpassung für Zeilen mit Checkbox */
+.div_mediaSelector_specific.with_checkbox {
+    /* justify-content bleibt space-between, align-items bleibt stretch */
+    padding-left: 10px; /* Etwas Platz links für die Checkbox */
+}
+
+.episode_checkbox {
+    margin-right: 10px; /* Abstand zwischen Checkbox und Episodentitel-Link */
+    flex-shrink: 0; /* Verhindert, dass die Checkbox schrumpft */
+    /* Ggf. Größe und Akzentfarbe der Checkbox anpassen, browserabhängig */
+    accent-color: var(--accent-color);
+    cursor: pointer;
+    transform: scale(1.1); /* Etwas größer für bessere Klickbarkeit */
+}
+
+/* Der Episodentitel-Link (.a_mediaSelector) sollte jetzt etwas weniger Platz haben oder flex-grow beibehalten */
+.div_mediaSelector_specific.with_checkbox .a_mediaSelector {
+    /* margin-right ist bereits durch die Aktionsbuttons da, aber ggf. anpassen, falls Buttons anders positioniert werden */
+}
+
+/* Button zum Erstellen der benutzerdefinierten M3U-Playlist */
+.custom_m3u_generator_button {
+    display: block; /* Volle Breite innerhalb des .div_mediaSelector (oder gewünschte Breite) */
+    width: calc(100% - 0px); /* Volle Breite des .div_mediaSelector abzüglich dessen Padding rechts */
+    padding: 12px 20px;
+    border-radius: var(--default-border-radius);
+    background-color: var(--accent-color);
+    color: var(--primary-bg);
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-align: center;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    /* margin-top: 10px; /* Bereits durch margin-bottom des episode-list-container geregelt */
+}
+
+.custom_m3u_generator_button:hover {
+    background-color: var(--accent-color-hover);
+    box-shadow: 0 2px 10px var(--accent-color-glow);
+}
+
+/* Überschreibe das Padding von .div_mediaSelector, da der episode-list-container jetzt scrollt */
+.div_mediaSelector {
+    padding: 10px 0px 10px 0px; /* Nur Top/Bottom Padding, da der innere Container jetzt Rechts-Padding für Scrollbar hat */
+}
+
+/* --- Styling für die Episoden-Tabelle --- */
+.episodes-table {
+    width: 100%;
+    border-collapse: collapse; /* Keine doppelten Ränder */
+    margin-top: 10px;
+}
+
+.episodes-table th, .episodes-table td {
+    padding: 10px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color); /* Linien zwischen Zeilen */
+    vertical-align: middle; /* Vertikale Zentrierung in Zellen */
+}
+
+.episodes-table th {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    background-color: rgba(255, 255, 255, 0.03); /* Leichter Hintergrund für Kopfzeile */
+}
+
+/* Spaltenbreiten (Anpassung nach Bedarf) */
+.episodes-table th:nth-child(1), .episodes-table td:nth-child(1) { width: 40px; text-align: center; } /* Checkbox */
+.episodes-table th:nth-child(2), .episodes-table td:nth-child(2) { width: 50px; text-align: right; padding-right:15px;} /* # Nummer */
+.episodes-table th:nth-child(3), .episodes-table td:nth-child(3) { width: auto; } /* Titel (flexibel) */
+.episodes-table th:nth-child(4), .episodes-table td:nth-child(4) { width: 180px; text-align: right;} /* Aktionen */
+
+.episodes-table td.episode-number-cell {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.a_mediaSelector_in_table {
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 0.9rem;
+    display: block; /* Um Ellipsis zu ermöglichen */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.a_mediaSelector_in_table:hover {
+    color: var(--accent-color);
+}
+
+.episode-actions-container {
+    display: flex;
+    justify-content: flex-end; /* Buttons rechtsbündig in der Zelle */
+    align-items: center;
+    gap: 8px; /* Abstand zwischen den Icons */
+}
+
+.a_mediaSelector_action_button_in_table {
+    display: flex; /* Stellt sicher, dass das Icon im Button zentriert ist */
+    align-items: center;
+    justify-content: center;
+    padding: 6px; /* Kleinere Klickfläche für Tabellen-Icons */
+    border-radius: var(--default-border-radius);
+    background-color: transparent; /* Standardmäßig transparent */
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.a_mediaSelector_action_button_in_table:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.table_action_icon {
+    width: 18px; /* Einheitliche Größe für alle Icons in der Tabelle */
+    height: 18px;
+    filter: invert(75%) sepia(10%) saturate(500%) hue-rotate(150deg) brightness(100%) contrast(85%);
+}
+
+.a_mediaSelector_action_button_in_table:hover .table_action_icon {
+    filter: invert(85%) sepia(20%) saturate(600%) hue-rotate(160deg) brightness(110%) contrast(90%);
+}
+
+/* Anpassung für Checkbox in Tabelle (bereits vorhanden, aber ggf. Kontext beachten) */
+.episode_checkbox {
+    margin-right: 0; /* Kein extra Margin, da in eigener Zelle */
+    accent-color: var(--accent-color);
+    cursor: pointer;
+    transform: scale(1.1);
+}

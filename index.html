@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./style.css">
+
+    <link rel="apple-touch-icon" sizes="180x180" href="./favicon/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="./favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="./favicon/favicon-16x16.png">
+    <link rel="manifest" href="./favicon/site.webmanifest">
+    <link rel="mask-icon" href="./favicon/safari-pinned-tab.svg" color="#5bbad5">
+    <link rel="shortcut icon" href="./favicon/favicon.ico">
+    <meta name="apple-mobile-web-app-title" content="plexer">
+    <meta name="application-name" content="plexer">
+    <meta name="msapplication-TileColor" content="#9f00a7">
+    <meta name="msapplication-config" content="./favicon/browserconfig.xml">
+    <meta name="theme-color" content="#ffffff">
+    <title>Plexer</title>
+</head>
+
+<body>
+    <div class="sidebar">
+        <a href="/index.html" class="logo-sidebar">
+            <img src="images/plexer-reborn-logo.webp" alt="Plexer Reborn Logo" class="logo-sidebar-image">
+        </a>
+        <nav class="sidebar-nav">
+            <a href="#" id="nav-search" class="sidebar-link active" title="Search">
+                <!-- Icon Placeholder, e.g., SVG or Font Icon -->
+                <span class="sidebar-link-text">Search</span>
+            </a>
+            <a href="#" id="nav-bookmarks" class="sidebar-link" title="Bookmarks">
+                <!-- Icon Placeholder -->
+                <span class="sidebar-link-text">Bookmarks</span>
+            </a>
+            <!-- Future links can be added here -->
+        </nav>
+        <div class="sidebar-user-actions">
+            <a id="reselectbutton" class="sidebar-link" title="Reselect server" onclick="reselect()">
+                <!-- Icon Placeholder -->
+                <span class="sidebar-link-text">Reselect Server</span>
+            </a>
+            <a id="logoutbutton" class="sidebar-link" title="Logout" onclick="logout()">
+                <!-- Icon Placeholder -->
+                <span class="sidebar-link-text">Logout</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="main-header">
+            <div class="div_search">
+                <form onsubmit="return false">
+                    <input id="searchbar" class="searchbar" name="search" type="text" placeholder="Search for media" required>
+                    <button id="searchbutton" class="searchbutton" type="submit" onclick="searcher()">Search</button>
+                    <div id="searchHistoryContainer" class="search-history-container"></div>
+                </form>
+            </div>
+        </div>
+
+        <div class="div_body_main">
+            <div class="div_bodycontent" id="div_bodycontent">
+                <!-- Search results and current popups will render here via JS -->
+                 <div class="div_popup" id="div_popup">
+                 </div>
+                 <div class="div_popup" id="div_popup2">
+                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="messagebox" class="div_message">
+        <p id="message" class="p_message">just some message</p>
+    </div>
+
+    <!-- Neues Popup für den Inline Video Player -->
+    <div id="videoPlayerPopup" class="div_popup video_player_popup"> <!-- Eigene Klasse für spezifisches Styling -->
+        <a class="closebutton" onclick="closeVideoPlayerPopup()">x</a>
+        <div id="videoPlayerContainer">
+            <!-- Das <video>-Tag wird hier von JavaScript eingefügt -->
+        </div>
+    </div>
+
+    <script src="./jquery.js"></script>
+    <script src="./script.js"></script>
+</body>
+
+</html>
