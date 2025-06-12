@@ -474,6 +474,9 @@ function downloadMovie(key, movieTitle) {
                         <a onclick="playMovieInline('${playOrJdUrl}', '${escapedMovieTitle}'); event.stopPropagation();" class="play_movie_button movie_action_button_styled" title="Play '${escapedMovieTitle}'">
                             <img src="icons/tv.svg" alt="Play Movie" class="movie_action_icon play_button_icon">
                         </a>
+                        <a onclick="openInVLC('${playOrJdUrl}'); event.stopPropagation();" class="vlc_button movie_action_button_styled" title="Open '${escapedMovieTitle}' in VLC">
+                            <img src="icons/vlc.svg" alt="Open in VLC" class="movie_action_icon">
+                        </a>
                         <a onclick="copyMovieLink('${directDlUrl}', '${escapedMovieTitle}'); event.stopPropagation();" class="copy_movie_link_button movie_action_button_styled" title="Copy download link for '${escapedMovieTitle}'">
                             <img src="icons/link.svg" alt="Copy Link" class="movie_action_icon">
                         </a>
@@ -670,6 +673,18 @@ function downloadSeason(key) {
                 jdIcon.className = 'jd_button_icon table_action_icon'; 
                 jdButtonEpisode.appendChild(jdIcon);
                 actionsContainer.appendChild(jdButtonEpisode); 
+
+                // VLC Button
+                var vlcButtonEpisode = document.createElement('a');
+                vlcButtonEpisode.className = 'vlc_button_episode a_mediaSelector_action_button_in_table';
+                vlcButtonEpisode.title = 'Open "' + episodeList[i]['title'] + '" in VLC';
+                vlcButtonEpisode.setAttribute("onclick", "openEpisodeInVLC('" + episodeList[i]['key'] + "', '" + episodeList[i]['title'] + "');event.stopPropagation();");
+                var vlcIcon = document.createElement('img');
+                vlcIcon.src = 'icons/vlc.svg';
+                vlcIcon.alt = 'Open in VLC';
+                vlcIcon.className = 'vlc_button_icon table_action_icon';
+                vlcButtonEpisode.appendChild(vlcIcon);
+                actionsContainer.appendChild(vlcButtonEpisode);
 
                 // Link kopieren Button
                 var copyLinkButton = document.createElement('a');
@@ -1490,7 +1505,7 @@ $(document).ready(function() {
             <form class="loginform" action="#" onsubmit="login();return false">
                     <input class="logininput" name="uname" type="text" placeholder="Plex Username" id="username_field" required>
                     <input class="logininput" name="pword" type="password" placeholder="Plex Password" id="password_field" required>
-                    <button class="loginbutton" type=”submit” onclick="login()">Submit</button>
+                    <button class="loginbutton" type=submit onclick="login()">Submit</button>
             </form>
         </div>`
         showAnimatedPopup(popupDiv);
@@ -1529,3 +1544,51 @@ $(document).ready(function() {
         console.log("nothing")
     }
 });
+
+function openInVLC(url) {
+    if (!url) {
+        showMessage("Error: No URL provided to open in VLC.");
+        console.error("VLC Link-Error: URL ist nicht vorhanden.");
+        return;
+    }
+    window.location.href = 'vlc://' + url;
+}
+
+async function openEpisodeInVLC(episodeKey, episodeTitle) {
+    if (!episodeKey) {
+        showMessage("Error: No episode key provided.");
+        return;
+    }
+
+    showMessage("Getting link for '" + episodeTitle + "'...");
+
+    try {
+        const response = await fetch(localStorage.getItem('selected_url') + episodeKey + "?X-Plex-Token=" + localStorage.getItem('selected_token'));
+        const data = await response.text();
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(data, "text/xml");
+        const partElement = xml.getElementsByTagName("Part")[0];
+        
+        if (!partElement) {
+            throw new Error("No 'Part' element found in the XML response.");
+        }
+
+        const keyAttr = partElement.getAttribute("key");
+        const fileAttr = partElement.getAttribute("file");
+
+        if (!keyAttr || !fileAttr) {
+            throw new Error("Key or file attribute missing in 'Part' element.");
+        }
+
+        const elementFile = encodeURI(/[^/]*$/.exec(fileAttr)[0]);
+        const elementKeyPath = /^(.*[\/])/.exec(keyAttr)[1];
+        const videoUrl = localStorage.getItem("selected_url") + elementKeyPath + elementFile + "?X-Plex-Token=" + localStorage.getItem("selected_token");
+
+        hideMessage();
+        window.location.href = 'vlc://' + videoUrl;
+
+    } catch (error) {
+        showMessage("Error getting link for '" + episodeTitle + "'. Check console.");
+        console.error("Error in openEpisodeInVLC for '" + episodeTitle + "':", error);
+    }
+}
