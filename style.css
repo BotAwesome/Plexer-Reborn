@@ -198,6 +198,39 @@ body {
     box-shadow: 0 0 15px var(--accent-color-glow); /* Stärkerer Glow beim Hover */
 }
 
+.vlclinkerbutton {
+    background-color: #FF7F00;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: var(--default-border-radius);
+    padding: 0 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+    height: 52px;
+    margin-left: 20px;
+    box-sizing: border-box;
+    gap: 8px;
+}
+
+.vlclinkerbutton:hover {
+    background-color: #E67300;
+}
+
+.vlc-icon {
+    width: 24px;
+    height: 24px;
+    filter: brightness(0) invert(1);
+}
+
+.vlc-text {
+    color: white;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
 .div_body_main { /* Container für div_bodycontent */
     flex-grow: 1;
     padding: 30px; /* Haupt-Padding für den Inhaltsbereich */

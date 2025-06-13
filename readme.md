@@ -31,6 +31,9 @@
       *   Inline video player for movies and episodes.
         *   (Note: Inline video playback is currently only compatible with Chromium-based browsers.)
       *   Direct download, JDownloader integration, link copying, and M3U creation for individual episodes, seasons, and movies.
+      *   **VLC Integration:** Open media directly in VLC media player.
+        *   Requires the [VLC-Linker](https://github.com/BotAwesome/VLC-linker) tool to be installed for the `vlc://` protocol to work.
+        *   Works for both movies and individual episodes.
   *   **Search History:** Saves and displays previous search queries.
   *   **Planned: Bookmarks:** Functionality to save and manage bookmarks for media items.
   *   And many more improvements in UI/UX!
@@ -41,6 +44,7 @@
   - [x] start with project
   - [x] make it work
   - [x] Add JDownloader support for mass download *(Fully implemented in Plexer Reborn)*
+  - [x] Add VLC integration for direct media playback
 
   ## Authors
 

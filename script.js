@@ -1555,40 +1555,15 @@ function openInVLC(url) {
 }
 
 async function openEpisodeInVLC(episodeKey, episodeTitle) {
-    if (!episodeKey) {
-        showMessage("Error: No episode key provided.");
-        return;
+    const episodeUrl = await getPlexDirectLink(episodeKey);
+    if (episodeUrl) {
+        openInVLC(episodeUrl);
+        showMessage(`Opening "${episodeTitle}" in VLC...`);
+    } else {
+        showMessage(`Could not get link for "${episodeTitle}".`);
     }
+}
 
-    showMessage("Getting link for '" + episodeTitle + "'...");
-
-    try {
-        const response = await fetch(localStorage.getItem('selected_url') + episodeKey + "?X-Plex-Token=" + localStorage.getItem('selected_token'));
-        const data = await response.text();
-        const parser = new DOMParser();
-        const xml = parser.parseFromString(data, "text/xml");
-        const partElement = xml.getElementsByTagName("Part")[0];
-        
-        if (!partElement) {
-            throw new Error("No 'Part' element found in the XML response.");
-        }
-
-        const keyAttr = partElement.getAttribute("key");
-        const fileAttr = partElement.getAttribute("file");
-
-        if (!keyAttr || !fileAttr) {
-            throw new Error("Key or file attribute missing in 'Part' element.");
-        }
-
-        const elementFile = encodeURI(/[^/]*$/.exec(fileAttr)[0]);
-        const elementKeyPath = /^(.*[\/])/.exec(keyAttr)[1];
-        const videoUrl = localStorage.getItem("selected_url") + elementKeyPath + elementFile + "?X-Plex-Token=" + localStorage.getItem("selected_token");
-
-        hideMessage();
-        window.location.href = 'vlc://' + videoUrl;
-
-    } catch (error) {
-        showMessage("Error getting link for '" + episodeTitle + "'. Check console.");
-        console.error("Error in openEpisodeInVLC for '" + episodeTitle + "':", error);
-    }
+function openVLCLinker() {
+    window.open('https://github.com/BotAwesome/VLC-linker', '_blank');
 }
