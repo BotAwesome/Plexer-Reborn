@@ -227,6 +227,7 @@ function selectSelected(url, token) {
             localStorage.setItem('selected', true)
             localStorage.setItem('selected_url', url);
             localStorage.setItem('selected_token', token);
+            localStorage.setItem('isFirstLoadAfterSelect', 'true');
             window.location.reload();
         })
         .catch(error => {
@@ -1501,11 +1502,13 @@ $(document).ready(function() {
         searchBar.classList.add("disabled");
         searchBar.disabled = true;
         searchButton.disabled = true;
-        popupDiv.innerHTML = `<div class="div_login">
-            <form class="loginform" action="#" onsubmit="login();return false">
-                    <input class="logininput" name="uname" type="text" placeholder="Plex Username" id="username_field" required>
-                    <input class="logininput" name="pword" type="password" placeholder="Plex Password" id="password_field" required>
-                    <button class="loginbutton" type=submit onclick="login()">Submit</button>
+        popupDiv.innerHTML = `<div class="login-container">
+            <h2 class="login-title">Plexer-Reborn Login</h2>
+            <p class="login-info">Log in with your Plex account to continue</p>
+            <form class="login-form" action="#" onsubmit="login();return false">
+                <input class="login-input" name="uname" type="text" placeholder="Username / Email" id="username_field" required>
+                <input class="login-input" name="pword" type="password" placeholder="Plex Password" id="password_field" required>
+                <button class="login-button" type="submit">Log In</button>
             </form>
         </div>`
         showAnimatedPopup(popupDiv);
@@ -1514,34 +1517,55 @@ $(document).ready(function() {
         searchBar.classList.add("disabled");
         searchBar.disabled = true;
         searchButton.disabled = true;
-        var popupTitle = document.createElement('p');
-        popupTitle.className = 'p_popup_title';
-        popupTitle.innerHTML = "Select a Connection";
-        popupDiv.appendChild(popupTitle);
-        var serversToChoose = JSON.parse(localStorage.getItem("servers"))
-        for (let i = 0; i < serversToChoose.length; i++) {
-            var div1 = document.createElement('div');
-            div1.className = 'div_selectserver';
-            var server_name = document.createElement('p');
-            server_name.className = 'p_selectserver_title';
-            server_name.innerHTML = serversToChoose[i]['name'];
-            div1.appendChild(server_name);
-            //console.log(serversToChoose[i]['name'])
-            for (let j = 0; j < Object.entries(serversToChoose[i]["connections"]).length; j++) {
-                var server_url = document.createElement('a');
-                server_url.className = 'p_selectserver_url';
-                server_url.setAttribute("onclick", "selectSelected('" + serversToChoose[i]['connections'][j] + "','" + serversToChoose[i]['token'] + "')");
-                server_url.innerHTML = serversToChoose[i]["connections"][j];
-                //console.log("i :" + i + ", j: " + j)
-                //console.log(serversToChoose[i]["connections"][j])
-                div1.appendChild(server_url);
-            }
-            //console.log(div1)
-            popupDiv.appendChild(div1);
+
+        popupDiv.innerHTML = `
+            <div class="server-selection-container">
+                <h2 class="p_popup_title">Select a Server Connection</h2>
+            </div>
+        `;
+
+        var serversToChoose = JSON.parse(localStorage.getItem("servers"));
+        var container = popupDiv.querySelector('.server-selection-container');
+
+        if (serversToChoose && serversToChoose.length > 0) {
+            serversToChoose.forEach(server => {
+                const serverCard = document.createElement('div');
+                serverCard.className = 'server-card';
+
+                const serverName = document.createElement('h3');
+                serverName.className = 'server-name';
+                serverName.textContent = server.name;
+                serverCard.appendChild(serverName);
+
+                const connectionsList = document.createElement('ul');
+                connectionsList.className = 'server-connections';
+
+                Object.values(server.connections).forEach(url => {
+                    const connectionItem = document.createElement('li');
+                    const link = document.createElement('a');
+                    link.href = '#';
+                    link.textContent = url;
+                    link.onclick = () => selectSelected(url, server.token);
+                    connectionItem.appendChild(link);
+                    connectionsList.appendChild(connectionItem);
+                });
+
+                serverCard.appendChild(connectionsList);
+                container.appendChild(serverCard);
+            });
+        } else {
+            container.innerHTML += '<p>No servers found. Please log in again.</p>';
         }
+
         showAnimatedPopup(popupDiv);
     } else {
-        console.log("nothing")
+        const isFirstLoad = localStorage.getItem('isFirstLoadAfterSelect');
+        const vlcInfoShown = localStorage.getItem('vlcLinkerInfoShown');
+
+        if (isFirstLoad === 'true' && vlcInfoShown !== 'true') {
+            localStorage.removeItem('isFirstLoadAfterSelect');
+            showVlcLinkerInfoPopup();
+        }
     }
 });
 
@@ -1566,4 +1590,42 @@ async function openEpisodeInVLC(episodeKey, episodeTitle) {
 
 function openVLCLinker() {
     window.open('https://github.com/BotAwesome/VLC-linker', '_blank');
+}
+
+function showVlcLinkerInfoPopup() {
+    popupDiv.innerHTML = `
+        <div class="vlc-info-popup-container">
+            <h2 class="p_popup_title">VLC Linker Required</h2>
+            <div class="vlc-info-content">
+                <p>To play media in your VLC media player, you need to install the <strong>VLC-linker</strong> tool.</p>
+                <p>This tool sends a command to PowerShell to open the stream in your installed VLC media player.</p>
+                <p>If you don't have VLC media player installed, you can download it here:</p>
+                <a href="https://www.videolan.org/" class="vlc-info-link" target="_blank" rel="noopener noreferrer">
+                    <img src="icons/vlc.svg" alt="VLC" class="vlc-info-link-icon">
+                    <span>Download VLC</span>
+                </a>
+                <p>You can find the tool and installation instructions on GitHub:</p>
+                <a href="https://github.com/BotAwesome/VLC-linker" class="vlc-info-link" target="_blank" rel="noopener noreferrer">
+                    <img src="icons/github.svg" alt="GitHub" class="vlc-info-link-icon">
+                    <span>BotAwesome/VLC-linker</span>
+                </a>
+            </div>
+            <div class="vlc-info-actions">
+                <div class="vlc-info-checkbox">
+                    <input type="checkbox" id="dont-show-vlc-info" checked>
+                    <label for="dont-show-vlc-info">Don't show this again</label>
+                </div>
+                <button class="vlc-info-button" onclick="closeVlcLinkerInfoPopup()">OK, I understand</button>
+            </div>
+        </div>
+    `;
+    showAnimatedPopup(popupDiv);
+}
+
+function closeVlcLinkerInfoPopup() {
+    const checkbox = document.getElementById('dont-show-vlc-info');
+    if (checkbox && checkbox.checked) {
+        localStorage.setItem('vlcLinkerInfoShown', 'true');
+    }
+    closeAnimatedPopup(popupDiv);
 }

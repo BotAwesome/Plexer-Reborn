@@ -279,88 +279,101 @@ body {
 }
 
 .p_popup_title {
-    font-size: 1.6rem; /* Leicht reduziert für Balance */
-    margin-bottom: 30px; /* Mehr Abstand nach unten */
+    font-size: 1.5rem;
     font-weight: 600;
     color: var(--text-primary);
-    width: 100%;
-    text-align: center;
-    padding-bottom: 15px; /* Platz für Trennlinie */
-    border-bottom: 1px solid var(--border-color); /* Subtile Trennlinie */
+    margin-bottom: 20px;
 }
 
-.logininput, 
-.input_download_section_inner {
-    margin-bottom: 20px; /* Mehr Abstand zwischen Feldern */
-    border: 1px solid var(--border-color);
-    border-radius: var(--default-border-radius);
-    background: var(--primary-bg); /* Klarer Kontrast zum Popup-BG */
-    outline: none;
-    padding: 15px 18px; /* Angepasstes Padding */
+/* --- New Login Form Styles --- */
+.login-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 25px;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.login-title {
+    font-size: 1.8rem;
+    font-weight: 700;
     color: var(--text-primary);
-    width: 100%;
-    font-size: 0.95rem;
-    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    margin-bottom: 10px;
 }
 
-.logininput::placeholder {
+.login-info {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin-bottom: 25px;
+    text-align: center;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 15px;
+}
+
+.login-input {
+    width: 100%;
+    padding: 14px 18px;
+    font-size: 1rem;
+    color: var(--text-primary);
+    background-color: var(--primary-bg-light);
+    border: 1px solid var(--border-color);
+    border-radius: var(--default-border-radius-small);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    outline: none;
+}
+
+.login-input::placeholder {
     color: var(--text-secondary);
     opacity: 0.8;
 }
 
-.logininput:focus, 
-.input_download_section_inner:focus {
-    background: var(--primary-bg); /* Bleibt dunkel für Konsistenz */
+.login-input:focus {
     border-color: var(--accent-color);
-    box-shadow: 0 0 0 3px var(--accent-color-glow); /* Deutlicherer Fokus-Indikator */
+    box-shadow: 0 0 0 3px var(--accent-color-glow);
 }
 
-.loginbutton, 
-.downloadbutton {
-    padding: 15px 22px; /* Angepasstes Padding */
-    border-radius: var(--default-border-radius);
-    border: none;
-    font-size: 1rem; /* Etwas größer */
-    background: var(--accent-color);
-    color: var(--primary-bg);
-    font-weight: 600;
-    transition: background-color 0.2s ease, box-shadow 0.2s ease;
-    cursor: pointer;
+.login-button {
     width: 100%;
+    padding: 14px 20px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary-bg);
+    background-color: var(--accent-color);
+    border: none;
+    border-radius: var(--default-border-radius-small);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
     text-align: center;
-    text-decoration: none;
-    display: inline-block; 
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    outline: none;
 }
 
-.loginbutton:hover, 
-.downloadbutton:hover {
-    background: var(--accent-color-hover);
-    box-shadow: 0 4px 10px var(--accent-color-glow); 
-}
-
-.loginbutton:active, /* Klick-Effekt */
-.downloadbutton:active {
-    background-color: var(--accent-color); /* Zurück zur Haupt-Akzentfarbe */
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); /* Innerer Schatten für Klick */
+.login-button:active {
+    background-color: var(--accent-color-dark); /* A slightly darker shade for click effect */
+    transform: scale(0.99);
 }
 
 .closebutton {
-    font-weight: 500; /* Nicht zu fett */
     position: absolute;
-    right: 20px; /* Etwas mehr Abstand vom Rand */
-    top: 20px;   /* Etwas mehr Abstand vom Rand */
+    top: 15px;
+    right: 20px;
     cursor: pointer;
-    font-size: 1.6rem; /* Größer für bessere Klickbarkeit */
+    font-size: 1.6rem;
     color: var(--text-secondary);
     transition: color 0.2s ease, transform 0.2s ease;
-    padding: 5px; /* Klickbereich vergrößern */
-    line-height: 1; /* Verhindert Verschiebung */
+    padding: 5px;
+    line-height: 1;
 }
 
 .closebutton:hover {
     color: var(--accent-color);
-    transform: rotate(90deg); /* Kleine Rotation beim Hover */
+    transform: rotate(90deg);
 }
 
 /* --- Media Cards (Neue Styles) --- */
@@ -1076,4 +1089,170 @@ body {
     accent-color: var(--accent-color);
     cursor: pointer;
     transform: scale(1.1);
+}
+
+/* --- Server Selection --- */
+.server-selection-container {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    max-width: 600px; /* Begrenzt die maximale Breite des Containers */
+    margin: 0 auto; /* Zentriert den Container im Popup */
+}
+
+.server-selection-container .p_popup_title {
+    margin-bottom: 10px; /* Abstand unter dem Titel */
+    text-align: center;
+}
+
+.server-card {
+    background-color: var(--primary-bg-light);
+    border: 1px solid var(--border-color);
+    border-radius: var(--default-border-radius);
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.server-name {
+    margin: 0 0 15px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color-light);
+    color: var(--text-primary);
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.server-connections {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.server-connections li a {
+    display: block;
+    padding: 12px 15px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: var(--default-border-radius-small);
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    word-break: break-all; /* Lange URLs umbrechen */
+}
+
+.server-connections li a:hover {
+    background-color: var(--accent-color);
+    color: var(--primary-bg);
+    font-weight: 600;
+}
+
+/* --- VLC Linker Info Popup --- */
+.vlc-info-popup-container {
+    padding: 25px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    text-align: center;
+    max-width: 500px;
+}
+
+.vlc-info-content p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
+
+.vlc-info-content p strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.vlc-info-content code {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9rem;
+    color: var(--accent-color);
+}
+
+.vlc-info-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 15px;
+    background-color: var(--primary-bg-light);
+    border: 1px solid var(--border-color);
+    border-radius: var(--default-border-radius);
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+}
+
+.vlc-info-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.vlc-info-link-icon {
+    width: 22px;
+    height: 22px;
+    filter: invert(90%);
+}
+
+.vlc-info-link-icon[alt="VLC"] {
+    filter: invert(90%) sepia(100%) saturate(1000%) hue-rotate(0deg) brightness(100%) contrast(100%);
+}
+
+.vlc-info-link span {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.vlc-info-actions {
+    margin-top: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.vlc-info-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.vlc-info-checkbox label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.vlc-info-checkbox input[type="checkbox"] {
+    accent-color: var(--accent-color);
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+
+.vlc-info-button {
+    width: 100%;
+    max-width: 250px;
+    padding: 12px 20px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--primary-bg);
+    background-color: var(--accent-color);
+    border: none;
+    border-radius: var(--default-border-radius-small);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.vlc-info-button:hover {
+    background-color: var(--accent-color-hover);
 }
