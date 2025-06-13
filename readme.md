@@ -33,6 +33,8 @@
       *   Direct download, JDownloader integration, link copying, and M3U creation for individual episodes, seasons, and movies.
       *   **VLC Integration:** Open media directly in VLC media player.
         *   Requires the [VLC-Linker](https://github.com/BotAwesome/VLC-linker) tool to be installed for the `vlc://` protocol to work.
+        *   If you don't have VLC media player installed, you can download it from the [official VLC website](https://www.videolan.org/).
+        *   The VLC-linker tool sends a command to PowerShell to open the stream in your installed VLC media player.
         *   Works for both movies and individual episodes.
   *   **Search History:** Saves and displays previous search queries.
   *   **Planned: Bookmarks:** Functionality to save and manage bookmarks for media items.
