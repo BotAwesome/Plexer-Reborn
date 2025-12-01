@@ -179,6 +179,27 @@ body {
     box-shadow: 0 0 10px var(--accent-color-glow); /* Glow bei Fokus */
 }
 
+.search-clear-button {
+    padding: 14px 16px;
+    border: 1px solid var(--border-color);
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+    background: var(--secondary-bg-lighter);
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    font-weight: 600;
+    line-height: 1;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    cursor: pointer;
+    display: none; /* Hidden by default, shown when searchbar has content */
+}
+
+.search-clear-button:hover {
+    background: var(--secondary-bg);
+    color: var(--text-primary);
+}
+
 .searchbutton {
     padding: 14px 22px; /* Mehr Padding */
     border-radius: 0 var(--default-border-radius) var(--default-border-radius) 0;
@@ -589,7 +610,295 @@ body {
     font-weight: 500;
     box-shadow: var(--shadow-medium); /* Weicherer Schatten */
     display: none;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
     z-index: 20000;
+}
+
+.message-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border-color);
+    border-top-color: var(--accent-color);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.p_message {
+    margin: 0;
+    flex: 1;
+}
+
+/* Highlighting for search terms */
+mark {
+    background-color: var(--accent-color-glow);
+    color: var(--accent-color);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-weight: 600;
+}
+
+/* Filter bar styling */
+.filter-bar {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.filter-select,
+.sort-select {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--default-border-radius);
+    background: var(--secondary-bg-lighter);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.filter-select:hover,
+.sort-select:hover {
+    background: var(--secondary-bg);
+    border-color: var(--accent-color);
+}
+
+.filter-select:focus,
+.sort-select:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 5px var(--accent-color-glow);
+}
+
+.reset-filters-button {
+    padding: 8px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--default-border-radius);
+    background: var(--secondary-bg);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.reset-filters-button:hover {
+    background: var(--secondary-bg-lighter);
+    color: var(--text-primary);
+    border-color: var(--accent-color);
+}
+
+/* Autocomplete dropdown styling */
+.autocomplete-container {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--default-border-radius);
+    margin-top: 5px;
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+    box-shadow: var(--shadow-medium);
+}
+
+.autocomplete-section {
+    padding: 8px 0;
+}
+
+.autocomplete-section-title {
+    padding: 8px 16px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 4px;
+}
+
+.autocomplete-item {
+    padding: 10px 16px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background-color 0.2s ease;
+}
+
+.autocomplete-item:hover {
+    background: var(--secondary-bg-lighter);
+}
+
+.autocomplete-title {
+    flex: 1;
+    color: var(--text-primary);
+}
+
+.autocomplete-type {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    text-transform: capitalize;
+    margin-left: 10px;
+}
+
+.autocomplete-history-item {
+    padding-left: 24px;
+}
+
+/* No results UI styling */
+.no-results-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
+    padding: 40px 20px;
+}
+
+.no-results-message {
+    text-align: center;
+    max-width: 600px;
+}
+
+.no-results-message h2 {
+    color: var(--text-primary);
+    font-size: 1.8rem;
+    margin-bottom: 10px;
+}
+
+.no-results-message > p {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    margin-bottom: 30px;
+}
+
+.no-results-suggestions {
+    margin: 30px 0;
+    text-align: left;
+}
+
+.no-results-suggestions h3 {
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+}
+
+.no-results-suggestions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.no-results-suggestion-item {
+    padding: 10px 16px;
+    background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--default-border-radius);
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.no-results-suggestion-item:hover {
+    background: var(--secondary-bg-lighter);
+    border-color: var(--accent-color);
+}
+
+.no-results-tips {
+    margin: 30px 0;
+    text-align: left;
+}
+
+.no-results-tips h3 {
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+}
+
+.no-results-tips-list {
+    list-style: none;
+    padding: 0;
+}
+
+.no-results-tips-list li {
+    color: var(--text-secondary);
+    padding: 8px 0;
+    padding-left: 20px;
+    position: relative;
+}
+
+.no-results-tips-list li:before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: var(--accent-color);
+}
+
+.no-results-reset-button {
+    margin-top: 20px;
+    padding: 12px 24px;
+    background: var(--accent-color);
+    border: none;
+    border-radius: var(--default-border-radius);
+    color: var(--primary-bg);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.no-results-reset-button:hover {
+    background: var(--accent-color-hover);
+}
+
+/* Search error UI styling */
+.search-error-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.search-error-container h2 {
+    color: var(--text-primary);
+    font-size: 1.8rem;
+    margin-bottom: 15px;
+}
+
+.search-error-container p {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    margin-bottom: 25px;
+    max-width: 500px;
+}
+
+.search-error-retry-button {
+    padding: 12px 24px;
+    background: var(--accent-color);
+    border: none;
+    border-radius: var(--default-border-radius);
+    color: var(--primary-bg);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.search-error-retry-button:hover {
+    background: var(--accent-color-hover);
 }
 
 /* Entferne alte oder nicht mehr benötigte Styles */

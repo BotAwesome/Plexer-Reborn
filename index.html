@@ -54,9 +54,28 @@
             <div class="div_search">
                 <form onsubmit="return false">
                     <input id="searchbar" class="searchbar" name="search" type="text" placeholder="Search for media" required>
+                    <button id="searchClearButton" class="search-clear-button" type="button" style="display: none;" title="Clear search">×</button>
                     <button id="searchbutton" class="searchbutton" type="submit" onclick="searcher()">Search</button>
                     <div id="searchHistoryContainer" class="search-history-container"></div>
+                    <div id="autocompleteContainer" class="autocomplete-container"></div>
                 </form>
+                <div id="filterBar" class="filter-bar" style="display: none;">
+                    <select id="typeFilter" class="filter-select">
+                        <option value="">All Types</option>
+                        <option value="movie">Movies</option>
+                        <option value="show">Shows</option>
+                    </select>
+                    <select id="sortSelect" class="sort-select">
+                        <option value="">Default</option>
+                        <option value="titleSort:asc">Title (A-Z)</option>
+                        <option value="titleSort:desc">Title (Z-A)</option>
+                        <option value="year:desc">Year (Newest)</option>
+                        <option value="year:asc">Year (Oldest)</option>
+                        <option value="rating:desc">Rating (High-Low)</option>
+                        <option value="rating:asc">Rating (Low-High)</option>
+                    </select>
+                    <button id="resetFiltersButton" class="reset-filters-button" type="button" title="Reset filters">Reset</button>
+                </div>
             </div>
             <button id="vlclinkerbutton" class="vlclinkerbutton" type="button" onclick="openVLCLinker()">
                 <img src="icons/vlc.svg" alt="VLC Linker" class="vlc-icon">
@@ -76,6 +95,7 @@
     </div>
 
     <div id="messagebox" class="div_message">
+        <div id="messageSpinner" class="message-spinner" style="display: none;"></div>
         <p id="message" class="p_message">just some message</p>
     </div>
 
