@@ -758,7 +758,7 @@ function searcher() {
     
     // Only add to history if valid
     if (isValidSearchQuery(search_string)) {
-        addSearchToHistory(search_string);
+    addSearchToHistory(search_string);
     }
 
     showMessage("started search. please wait!", true);
@@ -921,6 +921,14 @@ function searcher() {
 
                 mc_image_area.appendChild(img_mediaCard_Image);
                 mc_image_area.appendChild(mc_image_overlay);
+                
+                // Add click handler to open Netflix-like detail view
+                mc_image_area.style.cursor = 'pointer';
+                mc_image_area.addEventListener('click', function() {
+                    if (momObj['files'] && momObj['files'].length > 0) {
+                        showMediaDetailView(momObj['type'], momObj['files'][0]['key'], momObj);
+                    }
+                });
 
                 // 2. Details Area (summary, full meta, actions)
                 var mc_details_area = document.createElement('div');
@@ -992,6 +1000,279 @@ function searcher() {
         .catch(error => {
             handleSearchError(error, search_string);
         })
+}
+
+// Netflix-like detail view functions
+async function showMediaDetailView(mediaType, mediaKey, cachedData) {
+    showMessage("Loading details...", true);
+    
+    try {
+        // Fetch full metadata from Plex API
+        const metadataUrl = localStorage.getItem('selected_url') + '/library/metadata/' + mediaKey + '?X-Plex-Token=' + localStorage.getItem('selected_token');
+        const metadataResponse = await fetch(metadataUrl);
+        const metadataText = await metadataResponse.text();
+        const parser = new DOMParser();
+        const metadataXml = parser.parseFromString(metadataText, "text/xml");
+        
+        // Parse metadata
+        const mediaElement = metadataXml.getElementsByTagName(mediaType === 'movie' ? 'Video' : 'Directory')[0];
+        if (!mediaElement) {
+            throw new Error('Media element not found');
+        }
+        
+        const mediaData = {
+            type: mediaType,
+            key: mediaKey,
+            title: mediaElement.getAttribute('title') || cachedData?.title || 'Unknown',
+            year: mediaElement.getAttribute('year') || cachedData?.year || '',
+            summary: mediaElement.getAttribute('summary') || cachedData?.summary || 'No summary available.',
+            thumb: mediaElement.getAttribute('thumb') || cachedData?.thumb || '',
+            art: mediaElement.getAttribute('art') || cachedData?.art || '',
+            audienceRating: mediaElement.getAttribute('audienceRating') || cachedData?.audienceRating || '',
+            duration: mediaElement.getAttribute('duration') ? parseInt(mediaElement.getAttribute('duration')) : (cachedData?.duration ? cachedData.duration * 60 * 1000 : null),
+            genres: []
+        };
+        
+        // Parse genres
+        const genreElements = mediaElement.getElementsByTagName('Genre');
+        for (let i = 0; i < genreElements.length; i++) {
+            mediaData.genres.push(genreElements[i].getAttribute('tag'));
+        }
+        if (mediaData.genres.length === 0 && cachedData?.genres) {
+            mediaData.genres = cachedData.genres;
+        }
+        
+        // For shows, fetch seasons
+        let seasons = [];
+        if (mediaType === 'show') {
+            const seasonsUrl = localStorage.getItem('selected_url') + '/library/metadata/' + mediaKey + '/children?X-Plex-Token=' + localStorage.getItem('selected_token');
+            const seasonsResponse = await fetch(seasonsUrl);
+            const seasonsText = await seasonsResponse.text();
+            const seasonsXml = parser.parseFromString(seasonsText, "text/xml");
+            const seasonElements = seasonsXml.getElementsByTagName('Directory');
+            
+            for (let i = 0; i < seasonElements.length; i++) {
+                const seasonElement = seasonElements[i];
+                if (seasonElement.getAttribute('type') === 'season') {
+                    seasons.push({
+                        title: seasonElement.getAttribute('title') || 'Unknown Season',
+                        key: seasonElement.getAttribute('key') || '',
+                        thumb: seasonElement.getAttribute('thumb') || '',
+                        index: seasonElement.getAttribute('index') || '',
+                        year: seasonElement.getAttribute('year') || ''
+                    });
+                }
+            }
+        }
+        
+        // Get download key for actions
+        let downloadKey = mediaKey;
+        if (cachedData && cachedData.files && cachedData.files.length > 0) {
+            downloadKey = cachedData.files[0].key;
+        }
+        
+        hideMessage();
+        renderDetailView(mediaData, seasons, downloadKey);
+    } catch (error) {
+        hideMessage();
+        showMessage("Failed to load media details: " + error.message, false);
+        console.error("Error loading media details:", error);
+    }
+}
+
+async function renderDetailView(mediaData, seasons, downloadKey) {
+    const selectedUrl = localStorage.getItem('selected_url');
+    const selectedToken = localStorage.getItem('selected_token');
+    
+    // Build background image URL
+    const backgroundImageUrl = mediaData.art 
+        ? selectedUrl + mediaData.art + '?X-Plex-Token=' + selectedToken
+        : '';
+    
+    // Build thumbnail URL
+    const thumbUrl = mediaData.thumb 
+        ? selectedUrl + mediaData.thumb + '?X-Plex-Token=' + selectedToken
+        : '';
+    
+    // Format duration
+    let durationText = '';
+    if (mediaData.duration) {
+        const hours = Math.floor(mediaData.duration / 1000 / 60 / 60);
+        const minutes = Math.floor((mediaData.duration / 1000 / 60) % 60);
+        if (hours > 0) {
+            durationText = hours + 'h ' + minutes + 'min';
+        } else {
+            durationText = minutes + 'min';
+        }
+    }
+    
+    // Build meta info
+    let metaInfo = [];
+    if (mediaData.year) metaInfo.push(mediaData.year);
+    if (mediaData.genres && mediaData.genres.length > 0) metaInfo.push(mediaData.genres.join(', '));
+    if (durationText) metaInfo.push(durationText);
+    
+    // Escape HTML for title
+    const escapedTitle = String(mediaData.title).replace(/'/g, "\\'").replace(/"/g, "\\\"");
+    const rawTitle = mediaData.title;
+    
+    // Build action buttons HTML
+    let actionButtonsHtml = '';
+    if (mediaData.type === 'movie') {
+        // For movies, fetch download URLs to show all actions
+        try {
+            const movieResponse = await fetch(selectedUrl + downloadKey + '?X-Plex-Token=' + selectedToken);
+            const movieText = await movieResponse.text();
+            const parser = new DOMParser();
+            const movieXml = parser.parseFromString(movieText, "text/xml");
+            const partElements = movieXml.getElementsByTagName("Part");
+            
+            if (partElements.length > 0) {
+                const elementFile = encodeURI(/[^/]*$/.exec(partElements[0].getAttribute("file"))[0]);
+                const elementKey = /^(.*[\/])/.exec(partElements[0].getAttribute("key"))[1];
+                const baseUrl = selectedUrl + elementKey + elementFile;
+                const tokenSuffix = "?X-Plex-Token=" + selectedToken;
+                const playOrJdUrl = baseUrl + tokenSuffix;
+                const directDlUrl = baseUrl + "?download=1" + tokenSuffix.replace("?", "&");
+                const container = partElements[0].getAttribute('container') || '';
+                
+                actionButtonsHtml = `
+                    <button class="detail-action-button" onclick="directDownloadMovie('${directDlUrl}', '${rawTitle}', '${container}'); event.stopPropagation();" title="Download '${escapedTitle}'">
+                        <img src="icons/download.svg" alt="Download" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
+                        Download
+                    </button>
+                    <a href="http://127.0.0.1:9666/flash/add?urls=${encodeURIComponent(playOrJdUrl)}" class="detail-action-button" target="_blank" title="Send to JDownloader" style="text-decoration: none; display: inline-flex; align-items: center;">
+                        <img src="icons/jdownloader.svg" alt="JDownloader" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
+                        JDownloader
+                    </a>
+                    <button class="detail-action-button" onclick="playMovieInline('${playOrJdUrl}', '${escapedTitle}'); closeDetailView();" title="Play '${escapedTitle}'">
+                        <img src="icons/tv.svg" alt="Play" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
+                        Play
+                    </button>
+                    <button class="detail-action-button" onclick="openInVLC('${playOrJdUrl}'); event.stopPropagation();" title="Open in VLC">
+                        <img src="icons/vlc.svg" alt="VLC" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
+                        VLC
+                    </button>
+                    <button class="detail-action-button" onclick="copyMovieLink('${directDlUrl}', '${escapedTitle}'); event.stopPropagation();" title="Copy Link">
+                        <img src="icons/link.svg" alt="Copy Link" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
+                        Copy Link
+                    </button>
+                    <button class="detail-action-button" onclick="createMovieM3U('${playOrJdUrl}', '${rawTitle}'); event.stopPropagation();" title="Create M3U">
+                        <img src="icons/playlist.svg" alt="M3U" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
+                        M3U
+                    </button>
+                `;
+            } else {
+                // Fallback if no Part elements found
+                actionButtonsHtml = `
+                    <button class="detail-action-button" onclick="downloadMovie('${downloadKey}', '${escapedTitle}'); closeDetailView();" title="View Options">
+                        <img src="icons/download.svg" alt="Download" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
+                        View Options
+                    </button>
+                `;
+            }
+        } catch (error) {
+            console.error("Error fetching movie URLs:", error);
+            // Fallback button
+            actionButtonsHtml = `
+                <button class="detail-action-button" onclick="downloadMovie('${downloadKey}', '${escapedTitle}'); closeDetailView();" title="View Options">
+                    <img src="icons/download.svg" alt="Download" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
+                    View Options
+                </button>
+            `;
+        }
+    } else if (mediaData.type === 'show') {
+        actionButtonsHtml = `
+            <button class="detail-action-button" onclick="downloadShow('${downloadKey}'); closeDetailView();" title="View Seasons">
+                <img src="icons/tv.svg" alt="View Seasons" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
+                View Seasons
+            </button>
+        `;
+    }
+    
+    // Build seasons HTML
+    let seasonsHtml = '';
+    if (mediaData.type === 'show' && seasons.length > 0) {
+        seasonsHtml = `
+            <div class="detail-seasons">
+                <h2 class="detail-seasons-title">Staffeln</h2>
+                <div class="seasons-scroll">
+                    ${seasons.map(season => renderSeasonCard(season)).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    // Build rating HTML
+    let ratingHtml = '';
+    if (mediaData.audienceRating) {
+        const rating = parseFloat(mediaData.audienceRating);
+        let ratingClass = 'rating-bad';
+        if (rating > 7.9) ratingClass = 'rating-good';
+        else if (rating > 5.9) ratingClass = 'rating-okay';
+        else if (rating > 4.9) ratingClass = 'rating-bad';
+        else ratingClass = 'rating-worst';
+        
+        ratingHtml = `<div class="detail-rating ${ratingClass}">⭐ ${mediaData.audienceRating}</div>`;
+    }
+    
+    // Create detail view HTML
+    const detailViewHtml = `
+        <div class="detail-view">
+            <div class="detail-background" style="background-image: url('${backgroundImageUrl}');"></div>
+            <div class="detail-content">
+                <button class="detail-close-button" onclick="closeDetailView()" title="Close">×</button>
+                <div class="detail-header">
+                    <h1 class="detail-title">${escapeHtml(mediaData.title)}</h1>
+                    ${ratingHtml}
+                </div>
+                <div class="detail-meta">
+                    ${metaInfo.join(' • ')}
+                </div>
+                <p class="detail-summary">${escapeHtml(mediaData.summary)}</p>
+                <div class="detail-actions">
+                    ${actionButtonsHtml}
+                </div>
+                ${seasonsHtml}
+            </div>
+        </div>
+    `;
+    
+    // Clear and show popup
+    popupDiv.innerHTML = detailViewHtml;
+    showAnimatedPopup(popupDiv);
+    bodyDiv.appendChild(popupDiv);
+}
+
+function renderSeasonCard(seasonData) {
+    const selectedUrl = localStorage.getItem('selected_url');
+    const selectedToken = localStorage.getItem('selected_token');
+    const thumbUrl = seasonData.thumb 
+        ? selectedUrl + seasonData.thumb + '?X-Plex-Token=' + selectedToken
+        : '';
+    
+    const escapedTitle = String(seasonData.title).replace(/'/g, "\\'").replace(/"/g, "\\\"");
+    
+    return `
+        <div class="season-card" onclick="downloadSeason('${seasonData.key}'); closeDetailView();">
+            <img src="${thumbUrl}" alt="${escapeHtml(seasonData.title)}" class="season-card-image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'200\\' height=\\'300\\'%3E%3Crect fill=\\'%23333\\' width=\\'200\\' height=\\'300\\'/%3E%3Ctext fill=\\'%23999\\' font-family=\\'Arial\\' font-size=\\'14\\' x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\'%3ENo Cover%3C/text%3E%3C/svg%3E';">
+            <div class="season-card-info">
+                <div class="season-card-title">${escapeHtml(seasonData.title)}</div>
+                ${seasonData.year ? `<div class="season-card-year">${seasonData.year}</div>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+function closeDetailView() {
+    closeAnimatedPopup(popupDiv);
+}
+
+// Helper function to escape HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function reselect() {
