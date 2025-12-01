@@ -2067,6 +2067,141 @@ function forceAudioTranscoding(url) {
     return urlObj.toString();
 }
 
+/**
+ * Client-side transcoder using FFmpeg.wasm
+ * Transcodes AC3 audio to AAC for browser compatibility
+ * @param {string} videoUrl - URL of the video to transcode
+ * @param {Function} onProgress - Progress callback (0-100)
+ * @returns {Promise<Blob>} Transcoded video blob
+ */
+let ffmpegInstance = null;
+let ffmpegLoaded = false;
+
+async function loadFFmpeg() {
+    if (ffmpegLoaded && ffmpegInstance) {
+        return ffmpegInstance;
+    }
+    
+    try {
+        if (typeof FFmpeg === 'undefined') {
+            console.warn('FFmpeg.wasm not loaded. Falling back to server-side transcoding.');
+            return null;
+        }
+        
+        const { FFmpeg } = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js');
+        const { fetchFile, toBlobURL } = await import('https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js');
+        
+        ffmpegInstance = new FFmpeg();
+        
+        // Load FFmpeg core
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+        await ffmpegInstance.load({
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        });
+        
+        ffmpegLoaded = true;
+        console.log('FFmpeg.wasm loaded successfully');
+        return ffmpegInstance;
+    } catch (error) {
+        console.error('Failed to load FFmpeg.wasm:', error);
+        return null;
+    }
+}
+
+/**
+ * Transcode video using client-side FFmpeg (fallback if server transcoding fails)
+ * Note: This is resource-intensive and may not work well for large files
+ * @param {string} videoUrl - URL of the video
+ * @param {Function} progressCallback - Progress callback
+ * @returns {Promise<string>} Blob URL of transcoded video
+ */
+async function transcodeVideoClientSide(videoUrl, progressCallback = null) {
+    try {
+        const ffmpeg = await loadFFmpeg();
+        if (!ffmpeg) {
+            throw new Error('FFmpeg.wasm not available');
+        }
+        
+        showMessage('Transcoding video in browser... This may take a while.', true);
+        
+        // Set up progress handler
+        if (progressCallback) {
+            ffmpeg.on('progress', ({ progress }) => {
+                if (progressCallback) {
+                    progressCallback(Math.round(progress * 100));
+                }
+            });
+        }
+        
+        // Fetch the video
+        const response = await fetch(videoUrl);
+        const videoBlob = await response.blob();
+        const videoArrayBuffer = await videoBlob.arrayBuffer();
+        
+        // Write input file
+        await ffmpeg.writeFile('input.mp4', new Uint8Array(videoArrayBuffer));
+        
+        // Transcode: AC3 to AAC, keep video as-is
+        await ffmpeg.exec([
+            '-i', 'input.mp4',
+            '-c:v', 'copy',  // Copy video stream (no re-encoding)
+            '-c:a', 'aac',   // Transcode audio to AAC
+            '-b:a', '192k',  // Audio bitrate
+            '-strict', 'experimental',
+            'output.mp4'
+        ]);
+        
+        // Read output
+        const data = await ffmpeg.readFile('output.mp4');
+        
+        // Clean up
+        await ffmpeg.deleteFile('input.mp4');
+        await ffmpeg.deleteFile('output.mp4');
+        
+        // Create blob URL
+        const outputBlob = new Blob([data.buffer], { type: 'video/mp4' });
+        const blobUrl = URL.createObjectURL(outputBlob);
+        
+        hideMessage();
+        return blobUrl;
+    } catch (error) {
+        console.error('Client-side transcoding failed:', error);
+        hideMessage();
+        throw error;
+    }
+}
+
+/**
+ * Try server-side transcoding first, fallback to client-side if needed
+ * @param {string} originalUrl - Original video URL
+ * @param {boolean} preferClientSide - If true, try client-side first
+ * @returns {Promise<string>} URL to use for video playback
+ */
+async function getTranscodedVideoUrl(originalUrl, preferClientSide = false) {
+    if (preferClientSide) {
+        try {
+            // Try client-side transcoding first
+            const blobUrl = await transcodeVideoClientSide(originalUrl, (progress) => {
+                showMessage(`Transcoding: ${progress}%`, true);
+            });
+            return blobUrl;
+        } catch (error) {
+            console.warn('Client-side transcoding failed, falling back to server-side:', error);
+            // Fallback to server-side
+            return forceAudioTranscoding(originalUrl);
+        }
+    } else {
+        // Try server-side first (default)
+        const serverTranscodedUrl = forceAudioTranscoding(originalUrl);
+        
+        // Test if server transcoding works by trying to load the video
+        // If it fails, we could fallback to client-side, but that's complex
+        // For now, just return server-transcoded URL
+        return serverTranscodedUrl;
+    }
+}
+
 async function playMovieInline(movieUrl, movieTitle) {
     if (!videoPlayerPopup || !videoPlayerContainer) {
         console.error("Video player popup elements not found.");
@@ -2090,8 +2225,9 @@ async function playMovieInline(movieUrl, movieTitle) {
         videoElement.style.maxHeight = 'calc(100vh - 150px)'; 
 
         const sourceElement = document.createElement('source');
-        // Force audio transcoding to AAC for browser compatibility (AC3 is often not supported)
-        const transcodedUrl = forceAudioTranscoding(movieUrl);
+        // Try to get transcoded URL (server-side transcoding preferred)
+        // Client-side transcoding can be enabled by setting preferClientSide = true
+        const transcodedUrl = await getTranscodedVideoUrl(movieUrl, false);
         sourceElement.setAttribute('src', transcodedUrl);
         // Typ ist oft schwierig zu bestimmen, Browser können es oft selbst.
         // Wir setzen einen gängigen Typ oder lassen ihn weg, damit der Browser entscheidet.
@@ -2173,8 +2309,9 @@ async function playEpisodeInline(episodeKey, episodeTitle) {
         videoElement.style.maxHeight = 'calc(100vh - 150px)'; // Begrenzung der Höhe
 
         const sourceElement = document.createElement('source');
-        // Force audio transcoding to AAC for browser compatibility (AC3 is often not supported)
-        const transcodedUrl = forceAudioTranscoding(streamingUrl);
+        // Try to get transcoded URL (server-side transcoding preferred)
+        // Client-side transcoding can be enabled by setting preferClientSide = true
+        const transcodedUrl = await getTranscodedVideoUrl(streamingUrl, false);
         sourceElement.setAttribute('src', transcodedUrl);
         // Den Typ des Videos zu erraten ist schwierig. Man könnte versuchen, ihn aus 'container' im XML zu lesen.
         // Für den Anfang lassen wir den Browser entscheiden oder setzen einen gängigen Typ.
