@@ -1007,9 +1007,27 @@ async function showMediaDetailView(mediaType, mediaKey, cachedData) {
     showMessage("Loading details...", true);
     
     try {
+        const selectedUrl = localStorage.getItem('selected_url');
+        const selectedToken = localStorage.getItem('selected_token');
+        
+        // Normalize mediaKey - the key from search results is already a full path like /library/metadata/207289
+        // Extract just the ID if it contains /library/metadata/, otherwise use as-is
+        let normalizedKey = mediaKey;
+        const idMatch = normalizedKey.match(/\/library\/metadata\/(\d+)/);
+        if (idMatch) {
+            // Extract ID and rebuild path
+            normalizedKey = '/library/metadata/' + idMatch[1];
+        } else if (!normalizedKey.startsWith('/library/metadata/')) {
+            // If it doesn't contain the path, add it (shouldn't happen, but just in case)
+            normalizedKey = '/library/metadata/' + normalizedKey;
+        }
+        
         // Fetch full metadata from Plex API
-        const metadataUrl = localStorage.getItem('selected_url') + '/library/metadata/' + mediaKey + '?X-Plex-Token=' + localStorage.getItem('selected_token');
+        const metadataUrl = selectedUrl + normalizedKey + '?X-Plex-Token=' + selectedToken;
         const metadataResponse = await fetch(metadataUrl);
+        if (!metadataResponse.ok) {
+            throw new Error(`Failed to fetch metadata: ${metadataResponse.status} ${metadataResponse.statusText}`);
+        }
         const metadataText = await metadataResponse.text();
         const parser = new DOMParser();
         const metadataXml = parser.parseFromString(metadataText, "text/xml");
@@ -1017,12 +1035,12 @@ async function showMediaDetailView(mediaType, mediaKey, cachedData) {
         // Parse metadata
         const mediaElement = metadataXml.getElementsByTagName(mediaType === 'movie' ? 'Video' : 'Directory')[0];
         if (!mediaElement) {
-            throw new Error('Media element not found');
+            throw new Error('Media element not found in response');
         }
         
         const mediaData = {
             type: mediaType,
-            key: mediaKey,
+            key: normalizedKey,
             title: mediaElement.getAttribute('title') || cachedData?.title || 'Unknown',
             year: mediaElement.getAttribute('year') || cachedData?.year || '',
             summary: mediaElement.getAttribute('summary') || cachedData?.summary || 'No summary available.',
@@ -1045,28 +1063,32 @@ async function showMediaDetailView(mediaType, mediaKey, cachedData) {
         // For shows, fetch seasons
         let seasons = [];
         if (mediaType === 'show') {
-            const seasonsUrl = localStorage.getItem('selected_url') + '/library/metadata/' + mediaKey + '/children?X-Plex-Token=' + localStorage.getItem('selected_token');
+            const seasonsUrl = selectedUrl + normalizedKey + '/children?X-Plex-Token=' + selectedToken;
             const seasonsResponse = await fetch(seasonsUrl);
-            const seasonsText = await seasonsResponse.text();
-            const seasonsXml = parser.parseFromString(seasonsText, "text/xml");
-            const seasonElements = seasonsXml.getElementsByTagName('Directory');
-            
-            for (let i = 0; i < seasonElements.length; i++) {
-                const seasonElement = seasonElements[i];
-                if (seasonElement.getAttribute('type') === 'season') {
-                    seasons.push({
-                        title: seasonElement.getAttribute('title') || 'Unknown Season',
-                        key: seasonElement.getAttribute('key') || '',
-                        thumb: seasonElement.getAttribute('thumb') || '',
-                        index: seasonElement.getAttribute('index') || '',
-                        year: seasonElement.getAttribute('year') || ''
-                    });
+            if (!seasonsResponse.ok) {
+                console.warn(`Failed to fetch seasons: ${seasonsResponse.status} ${seasonsResponse.statusText}`);
+            } else {
+                const seasonsText = await seasonsResponse.text();
+                const seasonsXml = parser.parseFromString(seasonsText, "text/xml");
+                const seasonElements = seasonsXml.getElementsByTagName('Directory');
+                
+                for (let i = 0; i < seasonElements.length; i++) {
+                    const seasonElement = seasonElements[i];
+                    if (seasonElement.getAttribute('type') === 'season') {
+                        seasons.push({
+                            title: seasonElement.getAttribute('title') || 'Unknown Season',
+                            key: seasonElement.getAttribute('key') || '',
+                            thumb: seasonElement.getAttribute('thumb') || '',
+                            index: seasonElement.getAttribute('index') || '',
+                            year: seasonElement.getAttribute('year') || ''
+                        });
+                    }
                 }
             }
         }
         
         // Get download key for actions
-        let downloadKey = mediaKey;
+        let downloadKey = normalizedKey;
         if (cachedData && cachedData.files && cachedData.files.length > 0) {
             downloadKey = cachedData.files[0].key;
         }
