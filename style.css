@@ -1159,6 +1159,70 @@ mark {
     outline: none; /* Entfernt den Fokus-Rahmen, falls vorhanden */
 }
 
+/* Video.js Player Styling */
+#videoPlayerContainer .video-js {
+    width: 100%;
+    height: auto;
+    max-height: calc(100vh - 180px);
+    background-color: #000;
+    border-radius: var(--default-border-radius);
+    overflow: hidden;
+}
+
+#videoPlayerContainer .video-js .vjs-tech {
+    width: 100%;
+    height: auto;
+    max-height: calc(100vh - 180px);
+}
+
+/* Video.js Custom Theme - Dark Mode */
+#videoPlayerContainer .video-js {
+    --vjs-primary-color: var(--accent-color);
+    --vjs-secondary-color: var(--accent-color-hover);
+}
+
+#videoPlayerContainer .video-js .vjs-control-bar {
+    background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.8) 100%);
+    height: 4em;
+}
+
+#videoPlayerContainer .video-js .vjs-button:hover,
+#videoPlayerContainer .video-js .vjs-button:focus {
+    color: var(--accent-color);
+}
+
+#videoPlayerContainer .video-js .vjs-play-progress,
+#videoPlayerContainer .video-js .vjs-volume-level {
+    background-color: var(--accent-color);
+}
+
+#videoPlayerContainer .video-js .vjs-play-progress:before {
+    color: var(--accent-color);
+}
+
+#videoPlayerContainer .video-js .vjs-slider {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+#videoPlayerContainer .video-js .vjs-load-progress {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Video.js Playback Rate Menu */
+#videoPlayerContainer .video-js .vjs-playback-rate .vjs-menu-button {
+    color: var(--text-primary);
+}
+
+#videoPlayerContainer .video-js .vjs-playback-rate .vjs-menu .vjs-menu-content {
+    background-color: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+}
+
+#videoPlayerContainer .video-js .vjs-playback-rate .vjs-menu li.vjs-selected {
+    background-color: var(--accent-color);
+    color: var(--primary-bg);
+}
+
 /* Enhanced Video Player Progress Bar */
 .video-player-progress {
     width: 100%;

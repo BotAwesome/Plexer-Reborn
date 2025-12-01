@@ -2026,63 +2026,60 @@ function closeVideoPlayerPopup() {
         closeAnimatedPopup(videoPlayerPopup, false); // Inhalt nicht sofort leeren, falls Animation noch läuft
         // Stoppe und entferne das Video, um Ressourcen freizugeben
         setTimeout(() => { // Stelle sicher, dass es nach der Ausblendanimation passiert
-            videoPlayerContainer.innerHTML = ""; 
-            // Cleanup EnhancedVideoPlayer if exists
+            // Cleanup VideoJSPlayer if exists
             if (window.currentVideoPlayer) {
                 window.currentVideoPlayer.cleanup();
                 window.currentVideoPlayer = null;
             }
+            videoPlayerContainer.innerHTML = ""; 
         }, 250); 
     }
 }
 
 // ============================================================================
-// ENHANCED HTML5 VIDEO PLAYER WITH FFMPEG.WASM SUPPORT
+// VIDEO.JS PLAYER WITH FFMPEG.WASM SUPPORT
 // ============================================================================
 
 /**
- * EnhancedVideoPlayer - Advanced HTML5 video player with FFmpeg.wasm support
+ * VideoJSPlayer - Video.js wrapper with FFmpeg.wasm support
  * Features:
- * - Streaming transcoding with MediaSource Extensions
+ * - Professional Video.js player with many options
+ * - FFmpeg.wasm integration for client-side transcoding
  * - Audio track detection and management
  * - Multi-level fallback strategies
- * - Progress tracking during transcoding
+ * - Playback speed control, keyboard shortcuts, and more
  */
-class EnhancedVideoPlayer {
+class VideoJSPlayer {
     constructor(container) {
         this.container = container;
-        this.videoElement = null;
-        this.mediaSource = null;
-        this.sourceBuffer = null;
+        this.player = null;
         this.ffmpeg = null;
         this.isTranscoding = false;
         this.transcodingProgress = 0;
         this.audioTracks = [];
         this.currentAudioTrack = null;
-        this.chunkSize = 5 * 1024 * 1024; // 5MB chunks for streaming
         this.progressCallback = null;
         this.errorCallback = null;
+        this.blobUrl = null;
     }
 
     /**
-     * Initialize the player
+     * Initialize Video.js player
+     * @param {Object} options - Video.js player options
      * @returns {Promise<void>}
      */
-    async init() {
+    async init(options = {}) {
         if (!this.container) {
             throw new Error('Container element not provided');
         }
 
+        // Check if Video.js is loaded
+        if (typeof videojs === 'undefined') {
+            throw new Error('Video.js is not loaded. Please include Video.js script.');
+        }
+
         // Clear container
         this.container.innerHTML = '';
-
-        // Create video element
-        this.videoElement = document.createElement('video');
-        this.videoElement.setAttribute('controls', 'true');
-        this.videoElement.setAttribute('preload', 'auto');
-        this.videoElement.style.width = '100%';
-        this.videoElement.style.height = 'auto';
-        this.videoElement.style.maxHeight = 'calc(100vh - 150px)';
 
         // Create progress container
         const progressContainer = document.createElement('div');
@@ -2095,22 +2092,54 @@ class EnhancedVideoPlayer {
             <div class="progress-text">Preparing video...</div>
         `;
 
+        // Create video element for Video.js
+        const videoElement = document.createElement('video');
+        videoElement.id = 'plexer-video-player-' + Date.now();
+        videoElement.className = 'video-js vjs-default-skin';
+        videoElement.setAttribute('preload', 'auto');
+        videoElement.setAttribute('data-setup', '{}');
+
         this.container.appendChild(progressContainer);
-        this.container.appendChild(this.videoElement);
+        this.container.appendChild(videoElement);
 
         this.progressContainer = progressContainer;
         this.progressBar = progressContainer.querySelector('.progress-bar-fill');
         this.progressText = progressContainer.querySelector('.progress-text');
 
+        // Video.js player options
+        const playerOptions = {
+            controls: true,
+            autoplay: false,
+            preload: 'auto',
+            fluid: true,
+            responsive: true,
+            playbackRates: [0.5, 1, 1.25, 1.5, 2],
+            html5: {
+                vhs: {
+                    overrideNative: true
+                },
+                nativeVideoTracks: true,
+                nativeAudioTracks: true,
+                nativeTextTracks: true
+            },
+            ...options
+        };
+
+        // Initialize Video.js player
+        this.player = videojs(videoElement.id, playerOptions);
+
         // Setup error handler
-        this.videoElement.addEventListener('error', (e) => {
+        this.player.on('error', (e) => {
             this.handleError(e);
         });
 
-        // Setup audio track change detection
-        this.videoElement.addEventListener('loadedmetadata', () => {
+        // Setup audio track detection
+        this.player.on('loadedmetadata', () => {
             this.setupAudioTracks();
         });
+
+        // Setup keyboard shortcuts
+        this.setupKeyboardShortcuts();
     }
 
     /**
@@ -2255,25 +2284,28 @@ class EnhancedVideoPlayer {
         const transcodedUrl = forceAudioTranscoding(url);
         
         return new Promise((resolve, reject) => {
-            this.videoElement.src = transcodedUrl;
-            this.videoElement.load();
+            // Load video into Video.js player
+            this.player.src({
+                src: transcodedUrl,
+                type: 'video/mp4'
+            });
 
             const onCanPlay = () => {
-                this.videoElement.removeEventListener('canplay', onCanPlay);
-                this.videoElement.removeEventListener('error', onError);
+                this.player.off('canplay', onCanPlay);
+                this.player.off('error', onError);
                 this.showProgress(100, 'Ready');
                 setTimeout(() => this.hideProgress(), 500);
                 resolve();
             };
 
             const onError = (e) => {
-                this.videoElement.removeEventListener('canplay', onCanPlay);
-                this.videoElement.removeEventListener('error', onError);
+                this.player.off('canplay', onCanPlay);
+                this.player.off('error', onError);
                 reject(new Error('Server-side transcoding failed'));
             };
 
-            this.videoElement.addEventListener('canplay', onCanPlay);
-            this.videoElement.addEventListener('error', onError);
+            this.player.on('canplay', onCanPlay);
+            this.player.on('error', onError);
         });
     }
 
@@ -2286,25 +2318,28 @@ class EnhancedVideoPlayer {
         this.showProgress(0, 'Loading video...');
         
         return new Promise((resolve, reject) => {
-            this.videoElement.src = url;
-            this.videoElement.load();
+            // Load video into Video.js player
+            this.player.src({
+                src: url,
+                type: 'video/mp4'
+            });
 
             const onCanPlay = () => {
-                this.videoElement.removeEventListener('canplay', onCanPlay);
-                this.videoElement.removeEventListener('error', onError);
+                this.player.off('canplay', onCanPlay);
+                this.player.off('error', onError);
                 this.showProgress(100, 'Ready');
                 setTimeout(() => this.hideProgress(), 500);
                 resolve();
             };
 
             const onError = (e) => {
-                this.videoElement.removeEventListener('canplay', onCanPlay);
-                this.videoElement.removeEventListener('error', onError);
+                this.player.off('canplay', onCanPlay);
+                this.player.off('error', onError);
                 reject(new Error('Direct play failed'));
             };
 
-            this.videoElement.addEventListener('canplay', onCanPlay);
-            this.videoElement.addEventListener('error', onError);
+            this.player.on('canplay', onCanPlay);
+            this.player.on('error', onError);
         });
     }
 
@@ -2764,9 +2799,16 @@ async function playEpisodeInline(episodeKey, episodeTitle) {
             window.currentVideoPlayer = null;
         }
 
-        // Create new enhanced video player
-        const player = new EnhancedVideoPlayer(videoPlayerContainer);
-        await player.init();
+        // Create new Video.js player
+        const player = new VideoJSPlayer(videoPlayerContainer);
+        await player.init({
+            controls: true,
+            autoplay: false,
+            preload: 'auto',
+            fluid: true,
+            responsive: true,
+            playbackRates: [0.5, 1, 1.25, 1.5, 2]
+        });
 
         // Show popup
         showAnimatedPopup(videoPlayerPopup);
@@ -2781,15 +2823,15 @@ async function playEpisodeInline(episodeKey, episodeTitle) {
             onError: (error) => {
                 console.error("Error playing video:", error);
                 console.error("Video source URL:", streamingUrl);
-                showMessage("Error: Could not play '" + episodeTitle + "'. " + error.message);
+                showMessage("Error: Could not play '" + episodeTitle + "'. " + (error.message || 'Unknown error'));
             }
         });
 
-        // Get video element for event listeners
-        const videoElement = player.getVideoElement();
-        if (videoElement) {
+        // Get Video.js player instance for event listeners
+        const videojsPlayer = player.getPlayer();
+        if (videojsPlayer) {
             // Mark as watched when video starts playing
-            videoElement.addEventListener('play', () => {
+            videojsPlayer.on('play', () => {
                 markAsWatched(episodeKey);
                 // Update UI if detail view is open
                 updateWatchedIconInUI(episodeKey);
