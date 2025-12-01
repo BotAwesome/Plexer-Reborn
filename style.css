@@ -1800,6 +1800,224 @@ mark {
     color: rgba(255, 255, 255, 0.7);
 }
 
+/* Season Accordion Styles */
+.season-accordion {
+    margin-top: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.season-accordion-item {
+    background-color: rgba(0, 0, 0, 0.4);
+    border-radius: var(--default-border-radius);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+.season-accordion-item.active {
+    background-color: rgba(0, 0, 0, 0.6);
+    border-color: var(--accent-color);
+}
+
+.season-accordion-header {
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    cursor: pointer;
+    user-select: none;
+    gap: 20px;
+    transition: background-color 0.2s ease;
+}
+
+.season-accordion-header:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.season-accordion-preview {
+    width: 120px;
+    height: 180px;
+    object-fit: cover;
+    border-radius: var(--default-border-radius-small);
+    background-color: rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+.season-accordion-header-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.season-accordion-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: white;
+    margin: 0;
+}
+
+.season-accordion-meta {
+    display: flex;
+    gap: 15px;
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.season-accordion-toggle {
+    font-size: 1.5rem;
+    color: var(--accent-color);
+    transition: transform 0.3s ease;
+    margin-left: auto;
+}
+
+.season-accordion-item.active .season-accordion-toggle {
+    transform: rotate(180deg);
+}
+
+.season-accordion-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    padding: 0 20px;
+}
+
+.season-accordion-item.active .season-accordion-content {
+    max-height: 5000px;
+    padding: 20px;
+}
+
+.episodes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.episode-card {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: var(--default-border-radius);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.episode-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-medium);
+    border-color: var(--accent-color);
+}
+
+.episode-preview-image {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    background-color: rgba(255, 255, 255, 0.1);
+    display: block;
+}
+
+.episode-card-info {
+    padding: 12px;
+    color: white;
+}
+
+.episode-card-title {
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin-bottom: 5px;
+    line-height: 1.3;
+}
+
+.episode-card-meta {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.watched-icon {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    background-color: rgba(76, 175, 80, 0.9);
+    border-radius: 50%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 16px;
+    z-index: 2;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.watched-icon.watched {
+    display: flex;
+}
+
+.watched-icon::before {
+    content: "👁";
+}
+
+.episode-actions-inline {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.episode-action-button {
+    padding: 6px 12px;
+    background-color: rgba(77, 208, 225, 0.2);
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    border-radius: var(--default-border-radius-small);
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.episode-action-button:hover {
+    background-color: var(--accent-color);
+    color: white;
+}
+
+.episode-action-button img {
+    width: 14px;
+    height: 14px;
+}
+
+.episode-actions-expanded {
+    margin-top: 10px;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.episodes-loading {
+    padding: 40px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.6);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .detail-content {
@@ -1834,5 +2052,25 @@ mark {
     .detail-action-button {
         width: 100%;
         justify-content: center;
+    }
+    
+    .season-accordion-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .season-accordion-preview {
+        width: 100px;
+        height: 150px;
+    }
+    
+    .episodes-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 15px;
+    }
+    
+    .episode-preview-image {
+        height: 100px;
     }
 }

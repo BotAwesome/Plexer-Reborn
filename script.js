@@ -14,6 +14,7 @@ var videoPlayerContainer = document.getElementById("videoPlayerContainer");
 
 const MAX_HISTORY_ITEMS = 10;
 const SEARCH_HISTORY_KEY = 'plexerSearchHistory';
+const WATCHED_ITEMS_KEY = 'plexerWatchedItems';
 
 // Search improvement variables
 let searchTimeout = null;
@@ -1217,14 +1218,14 @@ async function renderDetailPage(mediaData, seasons, downloadKey) {
         `;
     }
     
-    // Build seasons HTML
+    // Build seasons HTML with accordion
     let seasonsHtml = '';
     if (mediaData.type === 'show' && seasons.length > 0) {
         seasonsHtml = `
             <div class="detail-seasons">
                 <h2 class="detail-seasons-title">Staffeln</h2>
-                <div class="seasons-scroll">
-                    ${seasons.map(season => renderSeasonCard(season)).join('')}
+                <div class="season-accordion">
+                    ${seasons.map(season => renderSeasonAccordion(season)).join('')}
                 </div>
             </div>
         `;
@@ -1271,24 +1272,158 @@ async function renderDetailPage(mediaData, seasons, downloadKey) {
     }
 }
 
-function renderSeasonCard(seasonData) {
+// Load episodes for a season from Plex API
+async function loadSeasonEpisodes(seasonKey) {
+    try {
+        const selectedUrl = localStorage.getItem('selected_url');
+        const selectedToken = localStorage.getItem('selected_token');
+        const episodesUrl = selectedUrl + seasonKey + '?X-Plex-Token=' + selectedToken;
+        const response = await fetch(episodesUrl);
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch episodes: ${response.status}`);
+        }
+        
+        const text = await response.text();
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(text, "text/xml");
+        const episodeElements = xml.getElementsByTagName('Video');
+        
+        const episodes = [];
+        for (let i = 0; i < episodeElements.length; i++) {
+            const episodeElement = episodeElements[i];
+            if (episodeElement.getAttribute('type') === 'episode') {
+                episodes.push({
+                    title: episodeElement.getAttribute('title') || 'Unknown Episode',
+                    key: episodeElement.getAttribute('key') || '',
+                    thumb: episodeElement.getAttribute('thumb') || '',
+                    index: episodeElement.getAttribute('index') || '',
+                    summary: episodeElement.getAttribute('summary') || '',
+                    duration: episodeElement.getAttribute('duration') ? parseInt(episodeElement.getAttribute('duration')) : null
+                });
+            }
+        }
+        
+        return episodes;
+    } catch (error) {
+        console.error("Error loading season episodes:", error);
+        return [];
+    }
+}
+
+// Render episode card with preview image, title, watched icon, and action buttons
+function renderEpisodeCard(episodeData) {
+    const selectedUrl = localStorage.getItem('selected_url');
+    const selectedToken = localStorage.getItem('selected_token');
+    const thumbUrl = episodeData.thumb 
+        ? selectedUrl + episodeData.thumb + '?X-Plex-Token=' + selectedToken
+        : '';
+    
+    const watched = isWatched(episodeData.key);
+    const watchedClass = watched ? 'watched' : '';
+    
+    // Format duration
+    let durationText = '';
+    if (episodeData.duration) {
+        const minutes = Math.floor(episodeData.duration / 1000 / 60);
+        durationText = minutes + ' min';
+    }
+    
+    return `
+        <div class="episode-card" data-media-key="${episodeData.key}">
+            <div class="watched-icon ${watchedClass}" data-media-key="${episodeData.key}"></div>
+            <img src="${thumbUrl}" alt="${escapeHtml(episodeData.title)}" class="episode-preview-image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'200\\' height=\\'120\\'%3E%3Crect fill=\\'%23333\\' width=\\'200\\' height=\\'120\\'/%3E%3Ctext fill=\\'%23999\\' font-family=\\'Arial\\' font-size=\\'12\\' x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\'%3ENo Preview%3C/text%3E%3C/svg%3E';">
+            <div class="episode-card-info">
+                <div class="episode-card-title">${escapeHtml(episodeData.title)}</div>
+                <div class="episode-card-meta">
+                    ${episodeData.index ? `<span>E${episodeData.index}</span>` : ''}
+                    ${durationText ? `<span>• ${durationText}</span>` : ''}
+                </div>
+                <div class="episode-actions-inline">
+                    <button class="episode-action-button" onclick="toggleWatchedStatus('${episodeData.key}'); event.stopPropagation();" title="Toggle Watched Status">
+                        ${watched ? '✓ Watched' : 'Mark Watched'}
+                    </button>
+                    <button class="episode-action-button" onclick="playEpisodeInline('${episodeData.key}', '${escapeHtml(episodeData.title).replace(/'/g, "\\'")}'); event.stopPropagation();" title="Play Episode">
+                        <img src="icons/tv.svg" alt="Play"> Play
+                    </button>
+                    <button class="episode-action-button" onclick="showEpisodeActionsInline('${episodeData.key}'); event.stopPropagation();" title="More Actions">
+                        <img src="icons/download.svg" alt="Actions"> Actions
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Render season accordion item
+function renderSeasonAccordion(seasonData, episodes = null) {
     const selectedUrl = localStorage.getItem('selected_url');
     const selectedToken = localStorage.getItem('selected_token');
     const thumbUrl = seasonData.thumb 
         ? selectedUrl + seasonData.thumb + '?X-Plex-Token=' + selectedToken
         : '';
     
-    const escapedTitle = String(seasonData.title).replace(/'/g, "\\'").replace(/"/g, "\\\"");
+    const episodeCount = episodes ? episodes.length : '?';
+    const episodesHtml = episodes 
+        ? `<div class="episodes-grid">${episodes.map(ep => renderEpisodeCard(ep)).join('')}</div>`
+        : '<div class="episodes-loading">Loading episodes...</div>';
     
     return `
-        <div class="season-card" onclick="downloadSeason('${seasonData.key}');">
-            <img src="${thumbUrl}" alt="${escapeHtml(seasonData.title)}" class="season-card-image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'200\\' height=\\'300\\'%3E%3Crect fill=\\'%23333\\' width=\\'200\\' height=\\'300\\'/%3E%3Ctext fill=\\'%23999\\' font-family=\\'Arial\\' font-size=\\'14\\' x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\'%3ENo Cover%3C/text%3E%3C/svg%3E';">
-            <div class="season-card-info">
-                <div class="season-card-title">${escapeHtml(seasonData.title)}</div>
-                ${seasonData.year ? `<div class="season-card-year">${seasonData.year}</div>` : ''}
+        <div class="season-accordion-item" data-season-key="${seasonData.key}">
+            <div class="season-accordion-header" onclick="toggleSeasonAccordion('${seasonData.key}');">
+                <img src="${thumbUrl}" alt="${escapeHtml(seasonData.title)}" class="season-accordion-preview" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'120\\' height=\\'180\\'%3E%3Crect fill=\\'%23333\\' width=\\'120\\' height=\\'180\\'/%3E%3Ctext fill=\\'%23999\\' font-family=\\'Arial\\' font-size=\\'12\\' x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\'%3ENo Cover%3C/text%3E%3C/svg%3E';">
+                <div class="season-accordion-header-info">
+                    <h3 class="season-accordion-title">${escapeHtml(seasonData.title)}</h3>
+                    <div class="season-accordion-meta">
+                        ${episodeCount !== '?' ? `<span>${episodeCount} Episodes</span>` : ''}
+                        ${seasonData.year ? `<span>• ${seasonData.year}</span>` : ''}
+                    </div>
+                </div>
+                <div class="season-accordion-toggle">▼</div>
+            </div>
+            <div class="season-accordion-content">
+                ${episodesHtml}
             </div>
         </div>
     `;
+}
+
+// Toggle season accordion (only one open at a time)
+async function toggleSeasonAccordion(seasonKey) {
+    const accordionItem = document.querySelector(`.season-accordion-item[data-season-key="${seasonKey}"]`);
+    if (!accordionItem) return;
+    
+    const isActive = accordionItem.classList.contains('active');
+    const content = accordionItem.querySelector('.season-accordion-content');
+    
+    // Close all other accordion items
+    document.querySelectorAll('.season-accordion-item').forEach(item => {
+        if (item !== accordionItem) {
+            item.classList.remove('active');
+        }
+    });
+    
+    if (isActive) {
+        // Close this accordion
+        accordionItem.classList.remove('active');
+    } else {
+        // Open this accordion
+        accordionItem.classList.add('active');
+        
+        // Load episodes if not already loaded
+        const existingEpisodes = content.querySelector('.episodes-grid');
+        if (!existingEpisodes) {
+            showMessage("Loading episodes...", true);
+            const episodes = await loadSeasonEpisodes(seasonKey);
+            hideMessage();
+            
+            if (episodes.length > 0) {
+                content.innerHTML = `<div class="episodes-grid">${episodes.map(ep => renderEpisodeCard(ep)).join('')}</div>`;
+            } else {
+                content.innerHTML = '<div class="episodes-loading">No episodes found.</div>';
+            }
+        }
+    }
 }
 
 // Helper function to escape HTML
@@ -1296,6 +1431,76 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// Session Storage functions for "Watched" status
+function getWatchedItems() {
+    try {
+        const stored = sessionStorage.getItem(WATCHED_ITEMS_KEY);
+        return stored ? JSON.parse(stored) : {};
+    } catch (error) {
+        console.error("Error reading watched items from sessionStorage:", error);
+        return {};
+    }
+}
+
+function markAsWatched(mediaKey) {
+    try {
+        const watchedItems = getWatchedItems();
+        watchedItems[mediaKey] = true;
+        sessionStorage.setItem(WATCHED_ITEMS_KEY, JSON.stringify(watchedItems));
+        return true;
+    } catch (error) {
+        console.error("Error marking item as watched:", error);
+        return false;
+    }
+}
+
+function markAsUnwatched(mediaKey) {
+    try {
+        const watchedItems = getWatchedItems();
+        delete watchedItems[mediaKey];
+        sessionStorage.setItem(WATCHED_ITEMS_KEY, JSON.stringify(watchedItems));
+        return true;
+    } catch (error) {
+        console.error("Error marking item as unwatched:", error);
+        return false;
+    }
+}
+
+function isWatched(mediaKey) {
+    const watchedItems = getWatchedItems();
+    return watchedItems[mediaKey] === true;
+}
+
+function toggleWatchedStatus(mediaKey) {
+    if (isWatched(mediaKey)) {
+        markAsUnwatched(mediaKey);
+        updateWatchedIconInUI(mediaKey);
+        return false;
+    } else {
+        markAsWatched(mediaKey);
+        updateWatchedIconInUI(mediaKey);
+        return true;
+    }
+}
+
+// Update watched icon in UI
+function updateWatchedIconInUI(mediaKey) {
+    // Find all elements with data-media-key attribute matching this key
+    const elements = document.querySelectorAll(`[data-media-key="${mediaKey}"]`);
+    elements.forEach(element => {
+        const watchedIcon = element.querySelector('.watched-icon');
+        if (watchedIcon) {
+            if (isWatched(mediaKey)) {
+                watchedIcon.style.display = 'block';
+                watchedIcon.classList.add('watched');
+            } else {
+                watchedIcon.style.display = 'none';
+                watchedIcon.classList.remove('watched');
+            }
+        }
+    });
 }
 
 // URL Routing and Navigation Functions
@@ -1952,6 +2157,16 @@ async function playMovieInline(movieUrl, movieTitle) {
             showMessage("Error: Could not play '" + movieTitle + "'. Format not supported or URL invalid.");
         });
 
+        // Mark as watched when video starts playing
+        videoElement.addEventListener('play', () => {
+            // Try to get mediaKey from currentMediaData if available
+            if (currentMediaData && currentMediaData.key) {
+                markAsWatched(currentMediaData.key);
+                // Update UI if detail view is open
+                updateWatchedIconInUI(currentMediaData.key);
+            }
+        });
+
     } catch (error) {
         showMessage("Error loading '" + movieTitle + "'. Check console.");
         console.error("Error in playMovieInline for '" + movieTitle + "':", error);
@@ -2026,6 +2241,13 @@ async function playEpisodeInline(episodeKey, episodeTitle) {
             showMessage("Error: Could not play '" + episodeTitle + "'. The format might not be supported or the URL is invalid.");
             // Optional: Popup nach Fehler schließen oder Fehlermeldung im Popup anzeigen
             // closeVideoPlayerPopup();
+        });
+
+        // Mark as watched when video starts playing
+        videoElement.addEventListener('play', () => {
+            markAsWatched(episodeKey);
+            // Update UI if detail view is open
+            updateWatchedIconInUI(episodeKey);
         });
 
     } catch (error) {
