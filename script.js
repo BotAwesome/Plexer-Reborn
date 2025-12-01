@@ -2083,15 +2083,16 @@ async function loadFFmpeg() {
     }
     
     try {
-        if (typeof FFmpeg === 'undefined') {
-            console.warn('FFmpeg.wasm not loaded. Falling back to server-side transcoding.');
-            return null;
-        }
-        
+        // Dynamically import FFmpeg.wasm ES modules
         const { FFmpeg } = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js');
-        const { fetchFile, toBlobURL } = await import('https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js');
+        const { toBlobURL } = await import('https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js');
         
         ffmpegInstance = new FFmpeg();
+        
+        // Set up logging (optional)
+        ffmpegInstance.on('log', ({ message }) => {
+            console.log('FFmpeg:', message);
+        });
         
         // Load FFmpeg core
         const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
@@ -2105,6 +2106,7 @@ async function loadFFmpeg() {
         return ffmpegInstance;
     } catch (error) {
         console.error('Failed to load FFmpeg.wasm:', error);
+        console.warn('Falling back to server-side transcoding.');
         return null;
     }
 }
