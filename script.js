@@ -2031,6 +2031,42 @@ function closeVideoPlayerPopup() {
     }
 }
 
+/**
+ * Modifies a Plex streaming URL to force audio transcoding from AC3 to AAC
+ * This ensures browser compatibility since AC3 is often not supported
+ * @param {string} url - Original Plex streaming URL
+ * @returns {string} Modified URL with transcoding parameters
+ */
+function forceAudioTranscoding(url) {
+    if (!url) return url;
+    
+    // Parse URL to add/update parameters
+    const urlObj = new URL(url);
+    
+    // Force audio transcoding to AAC (browser-compatible)
+    urlObj.searchParams.set('audioCodec', 'aac');
+    
+    // Set audio bitrate (192k is a good balance)
+    urlObj.searchParams.set('maxAudioBitrate', '192');
+    
+    // Force video codec to h264 for better browser compatibility
+    urlObj.searchParams.set('videoCodec', 'h264');
+    
+    // Set video bitrate (8M is a good quality for web playback)
+    urlObj.searchParams.set('maxVideoBitrate', '8000');
+    
+    // Ensure container is mp4 for browser compatibility
+    urlObj.searchParams.set('container', 'mp4');
+    
+    // Add session parameter if not present (required for transcoding)
+    if (!urlObj.searchParams.has('session')) {
+        // Generate a simple session ID (Plex will handle this, but we can add a placeholder)
+        urlObj.searchParams.set('session', 'webplayer');
+    }
+    
+    return urlObj.toString();
+}
+
 async function playMovieInline(movieUrl, movieTitle) {
     if (!videoPlayerPopup || !videoPlayerContainer) {
         console.error("Video player popup elements not found.");
@@ -2054,7 +2090,9 @@ async function playMovieInline(movieUrl, movieTitle) {
         videoElement.style.maxHeight = 'calc(100vh - 150px)'; 
 
         const sourceElement = document.createElement('source');
-        sourceElement.setAttribute('src', movieUrl);
+        // Force audio transcoding to AAC for browser compatibility (AC3 is often not supported)
+        const transcodedUrl = forceAudioTranscoding(movieUrl);
+        sourceElement.setAttribute('src', transcodedUrl);
         // Typ ist oft schwierig zu bestimmen, Browser können es oft selbst.
         // Wir setzen einen gängigen Typ oder lassen ihn weg, damit der Browser entscheidet.
         sourceElement.setAttribute('type', 'video/mp4'); // Annahme, kann fehlschlagen wenn nicht mp4
@@ -2135,7 +2173,9 @@ async function playEpisodeInline(episodeKey, episodeTitle) {
         videoElement.style.maxHeight = 'calc(100vh - 150px)'; // Begrenzung der Höhe
 
         const sourceElement = document.createElement('source');
-        sourceElement.setAttribute('src', streamingUrl);
+        // Force audio transcoding to AAC for browser compatibility (AC3 is often not supported)
+        const transcodedUrl = forceAudioTranscoding(streamingUrl);
+        sourceElement.setAttribute('src', transcodedUrl);
         // Den Typ des Videos zu erraten ist schwierig. Man könnte versuchen, ihn aus 'container' im XML zu lesen.
         // Für den Anfang lassen wir den Browser entscheiden oder setzen einen gängigen Typ.
         // const containerType = partElement.getAttribute('container'); // z.B. 'mkv', 'mp4'
