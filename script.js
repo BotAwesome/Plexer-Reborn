@@ -1579,13 +1579,11 @@ function handlePopState(event) {
             }
         } else if (event.state.view === 'search') {
             // Restore search view
-            currentView = 'search';
-            restoreSearchState();
+            navigateToSearch(); // Use navigateToSearch to properly show/hide elements
         }
     } else {
         // No state, default to search
-        currentView = 'search';
-        restoreSearchState();
+        navigateToSearch(); // Use navigateToSearch to properly show/hide elements
     }
 }
 
