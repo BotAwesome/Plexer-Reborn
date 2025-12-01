@@ -2149,7 +2149,7 @@ class VideoJSPlayer {
      * @returns {Promise<void>}
      */
     async loadVideo(url, options = {}) {
-        if (!this.videoElement) {
+        if (!this.player) {
             await this.init();
         }
 
