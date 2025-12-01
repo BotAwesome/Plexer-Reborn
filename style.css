@@ -1159,6 +1159,39 @@ mark {
     outline: none; /* Entfernt den Fokus-Rahmen, falls vorhanden */
 }
 
+/* Enhanced Video Player Progress Bar */
+.video-player-progress {
+    width: 100%;
+    padding: 20px;
+    background-color: rgba(0, 0, 0, 0.7);
+    border-radius: var(--default-border-radius);
+    margin-bottom: 15px;
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 8px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-color) 0%, var(--accent-color-hover) 100%);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    box-shadow: 0 0 10px var(--accent-color-glow);
+}
+
+.progress-text {
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    text-align: center;
+    font-weight: 500;
+}
+
 /* Styles für den Download-Bereich in popupDiv2 (sind größtenteils durch generische Popup-Styles abgedeckt) */
 .div_download_section {
     width: 100%;

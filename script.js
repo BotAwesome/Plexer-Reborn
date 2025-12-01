@@ -2027,7 +2027,474 @@ function closeVideoPlayerPopup() {
         // Stoppe und entferne das Video, um Ressourcen freizugeben
         setTimeout(() => { // Stelle sicher, dass es nach der Ausblendanimation passiert
             videoPlayerContainer.innerHTML = ""; 
+            // Cleanup EnhancedVideoPlayer if exists
+            if (window.currentVideoPlayer) {
+                window.currentVideoPlayer.cleanup();
+                window.currentVideoPlayer = null;
+            }
         }, 250); 
+    }
+}
+
+// ============================================================================
+// ENHANCED HTML5 VIDEO PLAYER WITH FFMPEG.WASM SUPPORT
+// ============================================================================
+
+/**
+ * EnhancedVideoPlayer - Advanced HTML5 video player with FFmpeg.wasm support
+ * Features:
+ * - Streaming transcoding with MediaSource Extensions
+ * - Audio track detection and management
+ * - Multi-level fallback strategies
+ * - Progress tracking during transcoding
+ */
+class EnhancedVideoPlayer {
+    constructor(container) {
+        this.container = container;
+        this.videoElement = null;
+        this.mediaSource = null;
+        this.sourceBuffer = null;
+        this.ffmpeg = null;
+        this.isTranscoding = false;
+        this.transcodingProgress = 0;
+        this.audioTracks = [];
+        this.currentAudioTrack = null;
+        this.chunkSize = 5 * 1024 * 1024; // 5MB chunks for streaming
+        this.progressCallback = null;
+        this.errorCallback = null;
+    }
+
+    /**
+     * Initialize the player
+     * @returns {Promise<void>}
+     */
+    async init() {
+        if (!this.container) {
+            throw new Error('Container element not provided');
+        }
+
+        // Clear container
+        this.container.innerHTML = '';
+
+        // Create video element
+        this.videoElement = document.createElement('video');
+        this.videoElement.setAttribute('controls', 'true');
+        this.videoElement.setAttribute('preload', 'auto');
+        this.videoElement.style.width = '100%';
+        this.videoElement.style.height = 'auto';
+        this.videoElement.style.maxHeight = 'calc(100vh - 150px)';
+
+        // Create progress container
+        const progressContainer = document.createElement('div');
+        progressContainer.className = 'video-player-progress';
+        progressContainer.style.display = 'none';
+        progressContainer.innerHTML = `
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill" style="width: 0%"></div>
+            </div>
+            <div class="progress-text">Preparing video...</div>
+        `;
+
+        this.container.appendChild(progressContainer);
+        this.container.appendChild(this.videoElement);
+
+        this.progressContainer = progressContainer;
+        this.progressBar = progressContainer.querySelector('.progress-bar-fill');
+        this.progressText = progressContainer.querySelector('.progress-text');
+
+        // Setup error handler
+        this.videoElement.addEventListener('error', (e) => {
+            this.handleError(e);
+        });
+
+        // Setup audio track change detection
+        this.videoElement.addEventListener('loadedmetadata', () => {
+            this.setupAudioTracks();
+        });
+    }
+
+    /**
+     * Load and play video with transcoding support
+     * @param {string} url - Video URL
+     * @param {Object} options - Options (onProgress, onError, preferClientSide)
+     * @returns {Promise<void>}
+     */
+    async loadVideo(url, options = {}) {
+        if (!this.videoElement) {
+            await this.init();
+        }
+
+        this.progressCallback = options.onProgress || null;
+        this.errorCallback = options.onError || null;
+        const preferClientSide = options.preferClientSide !== false; // Default: true
+
+        try {
+            // Show progress
+            this.showProgress(0, 'Loading video...');
+
+            // Try client-side transcoding first (default)
+            if (preferClientSide) {
+                try {
+                    await this.loadWithClientSideTranscoding(url);
+                    return;
+                } catch (error) {
+                    console.warn('Client-side transcoding failed, trying server-side:', error);
+                    // Fallback to server-side transcoding
+                }
+            }
+
+            // Try server-side transcoding
+            try {
+                await this.loadWithServerSideTranscoding(url);
+                return;
+            } catch (error) {
+                console.warn('Server-side transcoding failed, trying direct play:', error);
+                // Fallback to direct play
+            }
+
+            // Last resort: Direct play
+            await this.loadDirect(url);
+
+        } catch (error) {
+            this.handleError(error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load video with client-side FFmpeg.wasm transcoding
+     * @param {string} url - Video URL
+     * @returns {Promise<void>}
+     */
+    async loadWithClientSideTranscoding(url) {
+        this.showProgress(0, 'Transcoding video in browser...');
+
+        // Load FFmpeg
+        const ffmpeg = await loadFFmpeg();
+        if (!ffmpeg) {
+            throw new Error('FFmpeg.wasm not available');
+        }
+        this.ffmpeg = ffmpeg;
+
+        // Setup progress handler
+        ffmpeg.on('progress', ({ progress }) => {
+            const percent = Math.round(progress * 100);
+            this.showProgress(percent, `Transcoding: ${percent}%`);
+            if (this.progressCallback) {
+                this.progressCallback(percent);
+            }
+        });
+
+        // Fetch video in chunks for streaming
+        const response = await fetch(url);
+        const reader = response.body.getReader();
+        const chunks = [];
+        let totalSize = 0;
+
+        // Read video in chunks
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            totalSize += value.length;
+        }
+
+        // Combine chunks
+        const videoArray = new Uint8Array(totalSize);
+        let offset = 0;
+        for (const chunk of chunks) {
+            videoArray.set(chunk, offset);
+            offset += chunk.length;
+        }
+
+        // Write input file
+        await ffmpeg.writeFile('input.mp4', videoArray);
+
+        // Transcode: AC3 to AAC, keep video as-is
+        this.showProgress(50, 'Transcoding audio...');
+        await ffmpeg.exec([
+            '-i', 'input.mp4',
+            '-c:v', 'copy',  // Copy video stream (no re-encoding)
+            '-c:a', 'aac',   // Transcode audio to AAC
+            '-b:a', '192k',  // Audio bitrate
+            '-ac', '2',      // Stereo output
+            '-strict', 'experimental',
+            'output.mp4'
+        ]);
+
+        // Read output
+        this.showProgress(90, 'Finalizing...');
+        const data = await ffmpeg.readFile('output.mp4');
+
+        // Clean up FFmpeg files
+        await ffmpeg.deleteFile('input.mp4');
+        await ffmpeg.deleteFile('output.mp4');
+
+        // Create blob URL
+        const outputBlob = new Blob([data.buffer], { type: 'video/mp4' });
+        const blobUrl = URL.createObjectURL(outputBlob);
+
+        // Load video
+        this.videoElement.src = blobUrl;
+        this.videoElement.load();
+
+        this.showProgress(100, 'Ready');
+        setTimeout(() => this.hideProgress(), 500);
+
+        // Store blob URL for cleanup
+        this.blobUrl = blobUrl;
+    }
+
+    /**
+     * Load video with server-side transcoding
+     * @param {string} url - Video URL
+     * @returns {Promise<void>}
+     */
+    async loadWithServerSideTranscoding(url) {
+        this.showProgress(0, 'Requesting transcoded stream...');
+        const transcodedUrl = forceAudioTranscoding(url);
+        
+        return new Promise((resolve, reject) => {
+            this.videoElement.src = transcodedUrl;
+            this.videoElement.load();
+
+            const onCanPlay = () => {
+                this.videoElement.removeEventListener('canplay', onCanPlay);
+                this.videoElement.removeEventListener('error', onError);
+                this.showProgress(100, 'Ready');
+                setTimeout(() => this.hideProgress(), 500);
+                resolve();
+            };
+
+            const onError = (e) => {
+                this.videoElement.removeEventListener('canplay', onCanPlay);
+                this.videoElement.removeEventListener('error', onError);
+                reject(new Error('Server-side transcoding failed'));
+            };
+
+            this.videoElement.addEventListener('canplay', onCanPlay);
+            this.videoElement.addEventListener('error', onError);
+        });
+    }
+
+    /**
+     * Load video directly (no transcoding)
+     * @param {string} url - Video URL
+     * @returns {Promise<void>}
+     */
+    async loadDirect(url) {
+        this.showProgress(0, 'Loading video...');
+        
+        return new Promise((resolve, reject) => {
+            this.videoElement.src = url;
+            this.videoElement.load();
+
+            const onCanPlay = () => {
+                this.videoElement.removeEventListener('canplay', onCanPlay);
+                this.videoElement.removeEventListener('error', onError);
+                this.showProgress(100, 'Ready');
+                setTimeout(() => this.hideProgress(), 500);
+                resolve();
+            };
+
+            const onError = (e) => {
+                this.videoElement.removeEventListener('canplay', onCanPlay);
+                this.videoElement.removeEventListener('error', onError);
+                reject(new Error('Direct play failed'));
+            };
+
+            this.videoElement.addEventListener('canplay', onCanPlay);
+            this.videoElement.addEventListener('error', onError);
+        });
+    }
+
+    /**
+     * Setup audio tracks detection and management
+     */
+    setupAudioTracks() {
+        if (!this.videoElement) return;
+
+        try {
+            // Check for audio tracks API (limited browser support)
+            if (this.videoElement.audioTracks && this.videoElement.audioTracks.length > 0) {
+                this.audioTracks = Array.from(this.videoElement.audioTracks);
+                console.log(`Found ${this.audioTracks.length} audio track(s)`);
+                
+                // Try to find AAC track
+                let aacTrack = this.audioTracks.find(track => {
+                    // Check if track is AAC (heuristic)
+                    return track.kind === 'main' || track.label?.toLowerCase().includes('aac');
+                });
+                
+                if (aacTrack) {
+                    aacTrack.enabled = true;
+                    this.currentAudioTrack = aacTrack;
+                    console.log('Selected AAC audio track');
+                } else if (this.audioTracks.length > 0) {
+                    // Enable first track
+                    this.audioTracks[0].enabled = true;
+                    this.currentAudioTrack = this.audioTracks[0];
+                    console.log('Selected first available audio track');
+                }
+            }
+
+            // Monitor audio playback
+            this.videoElement.addEventListener('play', () => {
+                this.checkAudioPlayback();
+            });
+
+            // Check audio on loadedmetadata
+            this.videoElement.addEventListener('loadedmetadata', () => {
+                this.detectAudioCodec();
+            });
+
+        } catch (error) {
+            console.warn('Audio track detection not fully supported:', error);
+        }
+    }
+
+    /**
+     * Detect audio codec from video metadata
+     */
+    detectAudioCodec() {
+        if (!this.videoElement) return;
+
+        // Try to detect if audio is present
+        const hasAudio = this.videoElement.mozHasAudio !== false; // Firefox specific
+        
+        // Check video properties
+        if (this.videoElement.readyState >= 1) {
+            // Video has loaded metadata
+            console.log('Video metadata loaded');
+            
+            // If we suspect AC3 or unsupported codec, we should have transcoded already
+            // But check anyway
+            if (!hasAudio && this.videoElement.audioTracks?.length === 0) {
+                console.warn('No audio detected in video element');
+            }
+        }
+    }
+
+    /**
+     * Check if audio is actually playing
+     */
+    checkAudioPlayback() {
+        if (!this.videoElement) return;
+
+        // Check if video has audio and is playing
+        setTimeout(() => {
+            const hasAudio = this.videoElement.mozHasAudio !== false; // Firefox
+            const audioTracks = this.videoElement.audioTracks;
+            
+            // Verify audio is actually playing
+            if (this.videoElement.volume > 0 && !this.videoElement.muted) {
+                // Check if we can detect audio (browser-dependent)
+                if (hasAudio === false || (audioTracks && audioTracks.length === 0 && !hasAudio)) {
+                    console.warn('Audio may not be playing correctly');
+                    // Show user notification
+                    showMessage('Warning: Audio may not be supported. Trying transcoding...', false);
+                }
+            }
+        }, 2000);
+    }
+
+    /**
+     * Show progress indicator
+     * @param {number} percent - Progress percentage (0-100)
+     * @param {string} text - Progress text
+     */
+    showProgress(percent, text) {
+        if (this.progressContainer) {
+            this.progressContainer.style.display = 'block';
+        }
+        if (this.progressBar) {
+            this.progressBar.style.width = percent + '%';
+        }
+        if (this.progressText) {
+            this.progressText.textContent = text || `Loading: ${percent}%`;
+        }
+    }
+
+    /**
+     * Hide progress indicator
+     */
+    hideProgress() {
+        if (this.progressContainer) {
+            this.progressContainer.style.display = 'none';
+        }
+    }
+
+    /**
+     * Handle errors with fallback strategies
+     * @param {Error|Event} error - Error object or event
+     */
+    handleError(error) {
+        console.error('Video player error:', error);
+        
+        const errorMessage = error.message || 'Unknown error occurred';
+        this.showProgress(0, `Error: ${errorMessage}`);
+        
+        if (this.errorCallback) {
+            this.errorCallback(error);
+        } else {
+            showMessage(`Video playback error: ${errorMessage}`, false);
+        }
+    }
+
+    /**
+     * Cleanup resources
+     */
+    cleanup() {
+        // Revoke blob URLs
+        if (this.blobUrl) {
+            URL.revokeObjectURL(this.blobUrl);
+            this.blobUrl = null;
+        }
+
+        // Stop video
+        if (this.videoElement) {
+            this.videoElement.pause();
+            this.videoElement.src = '';
+            this.videoElement.load();
+        }
+
+        // Cleanup MediaSource
+        if (this.sourceBuffer) {
+            try {
+                if (this.mediaSource.readyState === 'open') {
+                    this.mediaSource.endOfStream();
+                }
+            } catch (e) {
+                // Ignore
+            }
+            this.sourceBuffer = null;
+        }
+
+        if (this.mediaSource) {
+            try {
+                this.mediaSource.close();
+            } catch (e) {
+                // Ignore
+            }
+            this.mediaSource = null;
+        }
+
+        // Clear container
+        if (this.container) {
+            this.container.innerHTML = '';
+        }
+
+        this.videoElement = null;
+        this.ffmpeg = null;
+        this.isTranscoding = false;
+    }
+
+    /**
+     * Get video element for external event listeners
+     * @returns {HTMLVideoElement|null}
+     */
+    getVideoElement() {
+        return this.videoElement;
     }
 }
 
@@ -2208,47 +2675,48 @@ async function playMovieInline(movieUrl, movieTitle) {
 
     showMessage("Loading movie '" + movieTitle + "'...");
     try {
-        videoPlayerContainer.innerHTML = ''; // Vorherigen Inhalt leeren
+        // Cleanup previous player if exists
+        if (window.currentVideoPlayer) {
+            window.currentVideoPlayer.cleanup();
+            window.currentVideoPlayer = null;
+        }
 
-        const videoElement = document.createElement('video');
-        videoElement.setAttribute('controls', 'true');
-        videoElement.setAttribute('autoplay', 'true'); 
-        videoElement.style.width = '100%'; 
-        videoElement.style.height = 'auto';
-        videoElement.style.maxHeight = 'calc(100vh - 150px)'; 
+        // Create new enhanced video player
+        const player = new EnhancedVideoPlayer(videoPlayerContainer);
+        await player.init();
 
-        const sourceElement = document.createElement('source');
-        // Use client-side FFmpeg.wasm transcoding by default
-        // Falls back to server-side transcoding if client-side fails
-        const transcodedUrl = await getTranscodedVideoUrl(movieUrl, false);
-        sourceElement.setAttribute('src', transcodedUrl);
-        // Typ ist oft schwierig zu bestimmen, Browser können es oft selbst.
-        // Wir setzen einen gängigen Typ oder lassen ihn weg, damit der Browser entscheidet.
-        sourceElement.setAttribute('type', 'video/mp4'); // Annahme, kann fehlschlagen wenn nicht mp4
+        // Show popup
+        showAnimatedPopup(videoPlayerPopup);
+        hideMessage();
 
-        videoElement.appendChild(sourceElement);
-        videoElement.innerHTML += "Your browser does not support the video tag or the video format.";
-        
-        videoPlayerContainer.appendChild(videoElement);
-        
-        showAnimatedPopup(videoPlayerPopup); 
-        hideMessage(); 
-
-        videoElement.addEventListener('error', (e) => {
-            console.error("Error playing video:", e);
-            console.error("Video source URL:", movieUrl);
-            showMessage("Error: Could not play '" + movieTitle + "'. Format not supported or URL invalid.");
-        });
-
-        // Mark as watched when video starts playing
-        videoElement.addEventListener('play', () => {
-            // Try to get mediaKey from currentMediaData if available
-            if (currentMediaData && currentMediaData.key) {
-                markAsWatched(currentMediaData.key);
-                // Update UI if detail view is open
-                updateWatchedIconInUI(currentMediaData.key);
+        // Load video with transcoding
+        await player.loadVideo(movieUrl, {
+            preferClientSide: true, // Use FFmpeg.wasm by default
+            onProgress: (progress) => {
+                // Progress is handled internally by player
+            },
+            onError: (error) => {
+                console.error("Error playing video:", error);
+                showMessage("Error: Could not play '" + movieTitle + "'. " + error.message);
             }
         });
+
+        // Get video element for event listeners
+        const videoElement = player.getVideoElement();
+        if (videoElement) {
+            // Mark as watched when video starts playing
+            videoElement.addEventListener('play', () => {
+                // Try to get mediaKey from currentMediaData if available
+                if (currentMediaData && currentMediaData.key) {
+                    markAsWatched(currentMediaData.key);
+                    // Update UI if detail view is open
+                    updateWatchedIconInUI(currentMediaData.key);
+                }
+            });
+        }
+
+        // Store player reference for cleanup
+        window.currentVideoPlayer = player;
 
     } catch (error) {
         showMessage("Error loading '" + movieTitle + "'. Check console.");
@@ -2266,6 +2734,7 @@ async function playEpisodeInline(episodeKey, episodeTitle) {
 
     showMessage("Loading episode '" + episodeTitle + "'...");
     try {
+        // Fetch episode metadata
         const episodeResponse = await fetch(localStorage.getItem('selected_url') + episodeKey + "?X-Plex-Token=" + localStorage.getItem('selected_token'));
         const episodeData = await episodeResponse.text();
         const parser = new DOMParser();
@@ -2288,53 +2757,47 @@ async function playEpisodeInline(episodeKey, episodeTitle) {
         const elementFile = encodeURI(/[^/]*$/.exec(fileAttr)[0]);
         const elementKeyPath = /^(.*[\/])/.exec(keyAttr)[1];
         const streamingUrl = localStorage.getItem("selected_url") + elementKeyPath + elementFile + "?X-Plex-Token=" + localStorage.getItem("selected_token");
-        // Für direktes Streaming im <video>-Tag ist der Parameter ?download=0 nicht ideal, da er den Download forciert.
-        // Plex URLs für direktes Streaming (transkodiert oder direkt) können komplexer sein und hängen von Client-Profilen ab.
-        // Wir versuchen es zunächst mit der direkten Datei-URL, die oft funktioniert, wenn der Browser das Format unterstützt.
 
-        videoPlayerContainer.innerHTML = ''; // Vorherigen Inhalt leeren
+        // Cleanup previous player if exists
+        if (window.currentVideoPlayer) {
+            window.currentVideoPlayer.cleanup();
+            window.currentVideoPlayer = null;
+        }
 
-        const videoElement = document.createElement('video');
-        videoElement.setAttribute('controls', 'true');
-        videoElement.setAttribute('autoplay', 'true'); // Optional: Video automatisch starten
-        videoElement.style.width = '100%'; // Für responsives Verhalten im Popup
-        videoElement.style.height = 'auto';
-        videoElement.style.maxHeight = 'calc(100vh - 150px)'; // Begrenzung der Höhe
+        // Create new enhanced video player
+        const player = new EnhancedVideoPlayer(videoPlayerContainer);
+        await player.init();
 
-        const sourceElement = document.createElement('source');
-        // Use client-side FFmpeg.wasm transcoding by default
-        // Falls back to server-side transcoding if client-side fails
-        const transcodedUrl = await getTranscodedVideoUrl(streamingUrl, false);
-        sourceElement.setAttribute('src', transcodedUrl);
-        // Den Typ des Videos zu erraten ist schwierig. Man könnte versuchen, ihn aus 'container' im XML zu lesen.
-        // Für den Anfang lassen wir den Browser entscheiden oder setzen einen gängigen Typ.
-        // const containerType = partElement.getAttribute('container'); // z.B. 'mkv', 'mp4'
-        // if (containerType) sourceElement.setAttribute('type', 'video/' + containerType);
-        // Da MKV oft nicht direkt im Browser geht, wäre MP4 besser.
-        sourceElement.setAttribute('type', 'video/mp4'); // Sicherer Standard, auch wenn es nicht immer MP4 ist
+        // Show popup
+        showAnimatedPopup(videoPlayerPopup);
+        hideMessage();
 
-        videoElement.appendChild(sourceElement);
-        videoElement.innerHTML += "Your browser does not support the video tag or the video format."; // Fallback-Text
-        
-        videoPlayerContainer.appendChild(videoElement);
-        
-        showAnimatedPopup(videoPlayerPopup); // Das neue Popup anzeigen
-        hideMessage(); // Eventuelle vorherige Nachrichten ausblenden
-
-        videoElement.addEventListener('error', (e) => {
-            console.error("Error playing video:", e);
-            console.error("Video source URL:", streamingUrl);
-            showMessage("Error: Could not play '" + episodeTitle + "'. The format might not be supported or the URL is invalid.");
-            // Optional: Popup nach Fehler schließen oder Fehlermeldung im Popup anzeigen
-            // closeVideoPlayerPopup();
+        // Load video with transcoding (FFmpeg.wasm will handle AC3 to AAC conversion)
+        await player.loadVideo(streamingUrl, {
+            preferClientSide: true, // Use FFmpeg.wasm by default for better audio support
+            onProgress: (progress) => {
+                // Progress is handled internally by player
+            },
+            onError: (error) => {
+                console.error("Error playing video:", error);
+                console.error("Video source URL:", streamingUrl);
+                showMessage("Error: Could not play '" + episodeTitle + "'. " + error.message);
+            }
         });
 
-        // Mark as watched when video starts playing
-        videoElement.addEventListener('play', () => {
-            markAsWatched(episodeKey);
-            // Update UI if detail view is open
-            updateWatchedIconInUI(episodeKey);
-        });
+        // Get video element for event listeners
+        const videoElement = player.getVideoElement();
+        if (videoElement) {
+            // Mark as watched when video starts playing
+            videoElement.addEventListener('play', () => {
+                markAsWatched(episodeKey);
+                // Update UI if detail view is open
+                updateWatchedIconInUI(episodeKey);
+            });
+        }
+
+        // Store player reference for cleanup
+        window.currentVideoPlayer = player;
 
     } catch (error) {
         showMessage("Error loading '" + episodeTitle + "'. Check console.");
