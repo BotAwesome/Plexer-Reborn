@@ -21,6 +21,11 @@ let currentAbortController = null;
 let autocompleteTimeout = null;
 let currentAutocompleteAbortController = null;
 
+// Page navigation state management
+let currentView = 'search'; // 'search' | 'detail'
+let previousSearchResults = null; // Saved search results for back navigation
+let currentMediaData = null; // Current media data for detail view
+
 // --- Neue Popup Animationsfunktionen ---
 function showAnimatedPopup(popupElement) {
     if (!popupElement) return;
@@ -926,7 +931,7 @@ function searcher() {
                 mc_image_area.style.cursor = 'pointer';
                 mc_image_area.addEventListener('click', function() {
                     if (momObj['files'] && momObj['files'].length > 0) {
-                        showMediaDetailView(momObj['type'], momObj['files'][0]['key'], momObj);
+                        navigateToDetail(momObj['type'], momObj['files'][0]['key'], momObj);
                     }
                 });
 
@@ -1094,7 +1099,7 @@ async function showMediaDetailView(mediaType, mediaKey, cachedData) {
         }
         
         hideMessage();
-        renderDetailView(mediaData, seasons, downloadKey);
+        renderDetailPage(mediaData, seasons, downloadKey);
     } catch (error) {
         hideMessage();
         showMessage("Failed to load media details: " + error.message, false);
@@ -1102,7 +1107,7 @@ async function showMediaDetailView(mediaType, mediaKey, cachedData) {
     }
 }
 
-async function renderDetailView(mediaData, seasons, downloadKey) {
+async function renderDetailPage(mediaData, seasons, downloadKey) {
     const selectedUrl = localStorage.getItem('selected_url');
     const selectedToken = localStorage.getItem('selected_token');
     
@@ -1167,7 +1172,7 @@ async function renderDetailView(mediaData, seasons, downloadKey) {
                         <img src="icons/jdownloader.svg" alt="JDownloader" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
                         JDownloader
                     </a>
-                    <button class="detail-action-button" onclick="playMovieInline('${playOrJdUrl}', '${escapedTitle}'); closeDetailView();" title="Play '${escapedTitle}'">
+                    <button class="detail-action-button" onclick="playMovieInline('${playOrJdUrl}', '${escapedTitle}');" title="Play '${escapedTitle}'">
                         <img src="icons/tv.svg" alt="Play" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
                         Play
                     </button>
@@ -1187,7 +1192,7 @@ async function renderDetailView(mediaData, seasons, downloadKey) {
             } else {
                 // Fallback if no Part elements found
                 actionButtonsHtml = `
-                    <button class="detail-action-button" onclick="downloadMovie('${downloadKey}', '${escapedTitle}'); closeDetailView();" title="View Options">
+                    <button class="detail-action-button" onclick="downloadMovie('${downloadKey}', '${escapedTitle}');" title="View Options">
                         <img src="icons/download.svg" alt="Download" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
                         View Options
                     </button>
@@ -1197,7 +1202,7 @@ async function renderDetailView(mediaData, seasons, downloadKey) {
             console.error("Error fetching movie URLs:", error);
             // Fallback button
             actionButtonsHtml = `
-                <button class="detail-action-button" onclick="downloadMovie('${downloadKey}', '${escapedTitle}'); closeDetailView();" title="View Options">
+                <button class="detail-action-button" onclick="downloadMovie('${downloadKey}', '${escapedTitle}');" title="View Options">
                     <img src="icons/download.svg" alt="Download" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
                     View Options
                 </button>
@@ -1205,7 +1210,7 @@ async function renderDetailView(mediaData, seasons, downloadKey) {
         }
     } else if (mediaData.type === 'show') {
         actionButtonsHtml = `
-            <button class="detail-action-button" onclick="downloadShow('${downloadKey}'); closeDetailView();" title="View Seasons">
+            <button class="detail-action-button" onclick="downloadShow('${downloadKey}');" title="View Seasons">
                 <img src="icons/tv.svg" alt="View Seasons" style="width: 20px; height: 20px; margin-right: 8px; vertical-align: middle;">
                 View Seasons
             </button>
@@ -1238,12 +1243,12 @@ async function renderDetailView(mediaData, seasons, downloadKey) {
         ratingHtml = `<div class="detail-rating ${ratingClass}">⭐ ${mediaData.audienceRating}</div>`;
     }
     
-    // Create detail view HTML
-    const detailViewHtml = `
-        <div class="detail-view">
+    // Create detail page HTML
+    const detailPageHtml = `
+        <div class="detail-page">
             <div class="detail-background" style="background-image: url('${backgroundImageUrl}');"></div>
             <div class="detail-content">
-                <button class="detail-close-button" onclick="closeDetailView()" title="Close">×</button>
+                <button class="detail-back-button" onclick="navigateToSearch()" title="Zurück zur Suche">← Zurück</button>
                 <div class="detail-header">
                     <h1 class="detail-title">${escapeHtml(mediaData.title)}</h1>
                     ${ratingHtml}
@@ -1260,10 +1265,10 @@ async function renderDetailView(mediaData, seasons, downloadKey) {
         </div>
     `;
     
-    // Clear and show popup
-    popupDiv.innerHTML = detailViewHtml;
-    showAnimatedPopup(popupDiv);
-    bodyDiv.appendChild(popupDiv);
+    // Replace entire body content with detail page
+    if (bodyDiv) {
+        bodyDiv.innerHTML = detailPageHtml;
+    }
 }
 
 function renderSeasonCard(seasonData) {
@@ -1276,7 +1281,7 @@ function renderSeasonCard(seasonData) {
     const escapedTitle = String(seasonData.title).replace(/'/g, "\\'").replace(/"/g, "\\\"");
     
     return `
-        <div class="season-card" onclick="downloadSeason('${seasonData.key}'); closeDetailView();">
+        <div class="season-card" onclick="downloadSeason('${seasonData.key}');">
             <img src="${thumbUrl}" alt="${escapeHtml(seasonData.title)}" class="season-card-image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'200\\' height=\\'300\\'%3E%3Crect fill=\\'%23333\\' width=\\'200\\' height=\\'300\\'/%3E%3Ctext fill=\\'%23999\\' font-family=\\'Arial\\' font-size=\\'14\\' x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\'%3ENo Cover%3C/text%3E%3C/svg%3E';">
             <div class="season-card-info">
                 <div class="season-card-title">${escapeHtml(seasonData.title)}</div>
@@ -1286,15 +1291,99 @@ function renderSeasonCard(seasonData) {
     `;
 }
 
-function closeDetailView() {
-    closeAnimatedPopup(popupDiv);
-}
-
 // Helper function to escape HTML
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// URL Routing and Navigation Functions
+function navigateToDetail(mediaType, mediaKey, cachedData) {
+    // Save current search state
+    saveSearchState();
+    
+    // Extract media ID from key
+    const idMatch = mediaKey.match(/\/library\/metadata\/(\d+)/);
+    const mediaId = idMatch ? idMatch[1] : mediaKey.replace(/[^0-9]/g, '');
+    
+    // Update URL with History API
+    const newUrl = `#/detail/${mediaType}/${mediaId}`;
+    history.pushState({ 
+        view: 'detail', 
+        type: mediaType, 
+        id: mediaId, 
+        key: mediaKey,
+        cachedData: cachedData 
+    }, '', newUrl);
+    
+    // Update state
+    currentView = 'detail';
+    currentMediaData = { type: mediaType, key: mediaKey, cachedData: cachedData };
+    
+    // Load and render detail page
+    showMediaDetailView(mediaType, mediaKey, cachedData);
+}
+
+function navigateToSearch() {
+    // Update URL with History API
+    history.pushState({ view: 'search' }, '', '#/search');
+    
+    // Update state
+    currentView = 'search';
+    
+    // Restore search results if available
+    restoreSearchState();
+}
+
+function handlePopState(event) {
+    if (event.state) {
+        if (event.state.view === 'detail') {
+            // Restore detail view
+            currentView = 'detail';
+            if (event.state.key && event.state.cachedData) {
+                showMediaDetailView(event.state.type, event.state.key, event.state.cachedData);
+            } else {
+                // Need to reload from API
+                const mediaKey = event.state.key || `/library/metadata/${event.state.id}`;
+                showMediaDetailView(event.state.type, mediaKey, null);
+            }
+        } else if (event.state.view === 'search') {
+            // Restore search view
+            currentView = 'search';
+            restoreSearchState();
+        }
+    } else {
+        // No state, default to search
+        currentView = 'search';
+        restoreSearchState();
+    }
+}
+
+function saveSearchState() {
+    // Save current search results HTML and search term
+    if (bodyDiv && currentView === 'search') {
+        previousSearchResults = {
+            html: bodyDiv.innerHTML,
+            searchTerm: searchBar ? searchBar.value : ''
+        };
+    }
+}
+
+function restoreSearchState() {
+    // Restore previous search results if available
+    if (previousSearchResults && bodyDiv) {
+        bodyDiv.innerHTML = previousSearchResults.html;
+        if (searchBar && previousSearchResults.searchTerm) {
+            searchBar.value = previousSearchResults.searchTerm;
+        }
+        previousSearchResults = null;
+    } else {
+        // Clear body if no previous state
+        if (bodyDiv) {
+            bodyDiv.innerHTML = '';
+        }
+    }
 }
 
 function reselect() {
@@ -2515,6 +2604,28 @@ $(document).ready(function() {
         if (isFirstLoad === 'true' && vlcInfoShown !== 'true') {
             localStorage.removeItem('isFirstLoadAfterSelect');
             showVlcLinkerInfoPopup();
+        }
+    }
+    
+    // Initialize URL routing
+    window.addEventListener('popstate', handlePopState);
+    
+    // Check initial URL on page load
+    const hash = window.location.hash;
+    if (hash.startsWith('#/detail/')) {
+        // Extract detail view info from URL
+        const match = hash.match(/#\/detail\/(movie|show)\/(\d+)/);
+        if (match) {
+            const [, type, id] = match;
+            const mediaKey = `/library/metadata/${id}`;
+            currentView = 'detail';
+            showMediaDetailView(type, mediaKey, null);
+        }
+    } else {
+        // Default to search view
+        currentView = 'search';
+        if (hash === '#/search' || hash === '') {
+            history.replaceState({ view: 'search' }, '', '#/search');
         }
     }
 });
