@@ -2449,6 +2449,62 @@ class VideoJSPlayer {
     }
 
     /**
+     * Setup keyboard shortcuts for Video.js player
+     */
+    setupKeyboardShortcuts() {
+        if (!this.player) return;
+
+        // Space: Play/Pause
+        document.addEventListener('keydown', (e) => {
+            // Only handle if player is focused or video is playing
+            if (this.player && (this.player.hasFocus() || !this.player.paused())) {
+                if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    if (this.player.paused()) {
+                        this.player.play();
+                    } else {
+                        this.player.pause();
+                    }
+                }
+                // Arrow Left: Seek backward 10 seconds
+                else if (e.code === 'ArrowLeft' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    this.player.currentTime(this.player.currentTime() - 10);
+                }
+                // Arrow Right: Seek forward 10 seconds
+                else if (e.code === 'ArrowRight' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    this.player.currentTime(this.player.currentTime() + 10);
+                }
+                // Arrow Up: Volume up
+                else if (e.code === 'ArrowUp' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    this.player.volume(Math.min(1, this.player.volume() + 0.1));
+                }
+                // Arrow Down: Volume down
+                else if (e.code === 'ArrowDown' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    this.player.volume(Math.max(0, this.player.volume() - 0.1));
+                }
+                // M: Mute/Unmute
+                else if (e.code === 'KeyM' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    this.player.muted(!this.player.muted());
+                }
+                // F: Fullscreen
+                else if (e.code === 'KeyF' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    if (this.player.isFullscreen()) {
+                        this.player.exitFullscreen();
+                    } else {
+                        this.player.requestFullscreen();
+                    }
+                }
+            }
+        });
+    }
+
+    /**
      * Show progress indicator
      * @param {number} percent - Progress percentage (0-100)
      * @param {string} text - Progress text
