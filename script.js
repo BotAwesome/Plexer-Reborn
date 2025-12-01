@@ -2501,32 +2501,14 @@ class VideoJSPlayer {
             this.blobUrl = null;
         }
 
-        // Stop video
-        if (this.videoElement) {
-            this.videoElement.pause();
-            this.videoElement.src = '';
-            this.videoElement.load();
-        }
-
-        // Cleanup MediaSource
-        if (this.sourceBuffer) {
+        // Dispose Video.js player
+        if (this.player) {
             try {
-                if (this.mediaSource.readyState === 'open') {
-                    this.mediaSource.endOfStream();
-                }
+                this.player.dispose();
             } catch (e) {
-                // Ignore
+                console.warn('Error disposing Video.js player:', e);
             }
-            this.sourceBuffer = null;
-        }
-
-        if (this.mediaSource) {
-            try {
-                this.mediaSource.close();
-            } catch (e) {
-                // Ignore
-            }
-            this.mediaSource = null;
+            this.player = null;
         }
 
         // Clear container
@@ -2534,9 +2516,16 @@ class VideoJSPlayer {
             this.container.innerHTML = '';
         }
 
-        this.videoElement = null;
         this.ffmpeg = null;
         this.isTranscoding = false;
+    }
+
+    /**
+     * Get Video.js player instance for external access
+     * @returns {videojs.Player|null}
+     */
+    getPlayer() {
+        return this.player;
     }
 
     /**
@@ -2544,7 +2533,9 @@ class VideoJSPlayer {
      * @returns {HTMLVideoElement|null}
      */
     getVideoElement() {
-        return this.videoElement;
+        if (!this.player) return null;
+        const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
+        return tech?.el() || null;
     }
 }
 
