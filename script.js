@@ -1,6 +1,7 @@
 var popupDiv = document.getElementById("div_popup");
 var popupDiv2 = document.getElementById("div_popup2");
 var bodyDiv = document.getElementById("div_bodycontent");
+var detailPageContainer = document.getElementById("detailPageContainer");
 var reselectButton = document.getElementById("reselectbutton");
 var logoutButton = document.getElementById("logoutbutton");
 var searchButton = document.getElementById("searchbutton");
@@ -11,6 +12,8 @@ var messageSpinner = document.getElementById("messageSpinner");
 var searchHistoryContainer = document.getElementById("searchHistoryContainer");
 var videoPlayerPopup = document.getElementById("videoPlayerPopup");
 var videoPlayerContainer = document.getElementById("videoPlayerContainer");
+var sidebar = document.querySelector('.sidebar');
+var mainContent = document.querySelector('.main-content');
 
 const MAX_HISTORY_ITEMS = 10;
 const SEARCH_HISTORY_KEY = 'plexerSearchHistory';
@@ -1266,9 +1269,17 @@ async function renderDetailPage(mediaData, seasons, downloadKey) {
         </div>
     `;
     
-    // Replace entire body content with detail page
-    if (bodyDiv) {
-        bodyDiv.innerHTML = detailPageHtml;
+    // Render detail page in its own container (full page, outside main layout)
+    if (detailPageContainer) {
+        detailPageContainer.innerHTML = detailPageHtml;
+        detailPageContainer.style.display = 'block';
+        
+        // Hide sidebar and main content
+        if (sidebar) sidebar.style.display = 'none';
+        if (mainContent) mainContent.style.display = 'none';
+        
+        // Hide body scrollbar and make detail page full viewport
+        document.body.style.overflow = 'hidden';
     }
 }
 

@@ -1566,6 +1566,18 @@ mark {
     background-color: var(--accent-color-hover);
 }
 
+/* Detail Page Container (full page, outside main layout) */
+#detailPageContainer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+    overflow-y: auto;
+    background-color: var(--primary-bg);
+}
+
 /* Netflix-like Detail Page Styles */
 .detail-page {
     width: 100%;
