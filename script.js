@@ -2347,41 +2347,46 @@ class VideoJSPlayer {
      * Setup audio tracks detection and management
      */
     setupAudioTracks() {
-        if (!this.videoElement) return;
+        if (!this.player) return;
 
         try {
-            // Check for audio tracks API (limited browser support)
-            if (this.videoElement.audioTracks && this.videoElement.audioTracks.length > 0) {
-                this.audioTracks = Array.from(this.videoElement.audioTracks);
-                console.log(`Found ${this.audioTracks.length} audio track(s)`);
-                
-                // Try to find AAC track
-                let aacTrack = this.audioTracks.find(track => {
-                    // Check if track is AAC (heuristic)
-                    return track.kind === 'main' || track.label?.toLowerCase().includes('aac');
-                });
-                
-                if (aacTrack) {
-                    aacTrack.enabled = true;
-                    this.currentAudioTrack = aacTrack;
-                    console.log('Selected AAC audio track');
-                } else if (this.audioTracks.length > 0) {
-                    // Enable first track
-                    this.audioTracks[0].enabled = true;
-                    this.currentAudioTrack = this.audioTracks[0];
-                    console.log('Selected first available audio track');
+            const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
+            const videoElement = tech?.el();
+
+            if (videoElement) {
+                // Check for audio tracks API (limited browser support)
+                if (videoElement.audioTracks && videoElement.audioTracks.length > 0) {
+                    this.audioTracks = Array.from(videoElement.audioTracks);
+                    console.log(`Found ${this.audioTracks.length} audio track(s)`);
+                    
+                    // Try to find AAC track
+                    let aacTrack = this.audioTracks.find(track => {
+                        // Check if track is AAC (heuristic)
+                        return track.kind === 'main' || track.label?.toLowerCase().includes('aac');
+                    });
+                    
+                    if (aacTrack) {
+                        aacTrack.enabled = true;
+                        this.currentAudioTrack = aacTrack;
+                        console.log('Selected AAC audio track');
+                    } else if (this.audioTracks.length > 0) {
+                        // Enable first track
+                        this.audioTracks[0].enabled = true;
+                        this.currentAudioTrack = this.audioTracks[0];
+                        console.log('Selected first available audio track');
+                    }
                 }
+
+                // Monitor audio playback
+                this.player.on('play', () => {
+                    this.checkAudioPlayback();
+                });
+
+                // Check audio on loadedmetadata
+                this.player.on('loadedmetadata', () => {
+                    this.detectAudioCodec();
+                });
             }
-
-            // Monitor audio playback
-            this.videoElement.addEventListener('play', () => {
-                this.checkAudioPlayback();
-            });
-
-            // Check audio on loadedmetadata
-            this.videoElement.addEventListener('loadedmetadata', () => {
-                this.detectAudioCodec();
-            });
 
         } catch (error) {
             console.warn('Audio track detection not fully supported:', error);
@@ -2392,20 +2397,25 @@ class VideoJSPlayer {
      * Detect audio codec from video metadata
      */
     detectAudioCodec() {
-        if (!this.videoElement) return;
+        if (!this.player) return;
 
-        // Try to detect if audio is present
-        const hasAudio = this.videoElement.mozHasAudio !== false; // Firefox specific
-        
-        // Check video properties
-        if (this.videoElement.readyState >= 1) {
-            // Video has loaded metadata
-            console.log('Video metadata loaded');
+        const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
+        const videoElement = tech?.el();
+
+        if (videoElement) {
+            // Try to detect if audio is present
+            const hasAudio = videoElement.mozHasAudio !== false; // Firefox specific
             
-            // If we suspect AC3 or unsupported codec, we should have transcoded already
-            // But check anyway
-            if (!hasAudio && this.videoElement.audioTracks?.length === 0) {
-                console.warn('No audio detected in video element');
+            // Check video properties
+            if (videoElement.readyState >= 1) {
+                // Video has loaded metadata
+                console.log('Video metadata loaded');
+                
+                // If we suspect AC3 or unsupported codec, we should have transcoded already
+                // But check anyway
+                if (!hasAudio && videoElement.audioTracks?.length === 0) {
+                    console.warn('No audio detected in video element');
+                }
             }
         }
     }
@@ -2414,23 +2424,28 @@ class VideoJSPlayer {
      * Check if audio is actually playing
      */
     checkAudioPlayback() {
-        if (!this.videoElement) return;
+        if (!this.player) return;
 
-        // Check if video has audio and is playing
-        setTimeout(() => {
-            const hasAudio = this.videoElement.mozHasAudio !== false; // Firefox
-            const audioTracks = this.videoElement.audioTracks;
-            
-            // Verify audio is actually playing
-            if (this.videoElement.volume > 0 && !this.videoElement.muted) {
-                // Check if we can detect audio (browser-dependent)
-                if (hasAudio === false || (audioTracks && audioTracks.length === 0 && !hasAudio)) {
-                    console.warn('Audio may not be playing correctly');
-                    // Show user notification
-                    showMessage('Warning: Audio may not be supported. Trying transcoding...', false);
+        const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
+        const videoElement = tech?.el();
+
+        if (videoElement) {
+            // Check if video has audio and is playing
+            setTimeout(() => {
+                const hasAudio = videoElement.mozHasAudio !== false; // Firefox
+                const audioTracks = videoElement.audioTracks;
+                
+                // Verify audio is actually playing
+                if (this.player.volume() > 0 && !this.player.muted()) {
+                    // Check if we can detect audio (browser-dependent)
+                    if (hasAudio === false || (audioTracks && audioTracks.length === 0 && !hasAudio)) {
+                        console.warn('Audio may not be playing correctly');
+                        // Show user notification
+                        showMessage('Warning: Audio may not be supported. Trying transcoding...', false);
+                    }
                 }
-            }
-        }, 2000);
+            }, 2000);
+        }
     }
 
     /**
