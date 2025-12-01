@@ -1548,6 +1548,19 @@ function navigateToSearch() {
     // Update state
     currentView = 'search';
     
+    // Hide detail page container
+    if (detailPageContainer) {
+        detailPageContainer.style.display = 'none';
+        detailPageContainer.innerHTML = '';
+    }
+    
+    // Show sidebar and main content
+    if (sidebar) sidebar.style.display = 'flex';
+    if (mainContent) mainContent.style.display = 'flex';
+    
+    // Restore body scroll
+    document.body.style.overflow = '';
+    
     // Restore search results if available
     restoreSearchState();
 }
