@@ -2302,8 +2302,8 @@ async function playEpisodeInline(episodeKey, episodeTitle) {
         videoElement.style.maxHeight = 'calc(100vh - 150px)'; // Begrenzung der Höhe
 
         const sourceElement = document.createElement('source');
-        // Try to get transcoded URL (server-side transcoding preferred)
-        // Client-side transcoding can be enabled by setting preferClientSide = true
+        // Use client-side FFmpeg.wasm transcoding by default
+        // Falls back to server-side transcoding if client-side fails
         const transcodedUrl = await getTranscodedVideoUrl(streamingUrl, false);
         sourceElement.setAttribute('src', transcodedUrl);
         // Den Typ des Videos zu erraten ist schwierig. Man könnte versuchen, ihn aus 'container' im XML zu lesen.
