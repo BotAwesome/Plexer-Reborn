@@ -2175,32 +2175,27 @@ async function transcodeVideoClientSide(videoUrl, progressCallback = null) {
 }
 
 /**
- * Try server-side transcoding first, fallback to client-side if needed
+ * Try client-side transcoding first (FFmpeg.wasm), fallback to server-side if needed
  * @param {string} originalUrl - Original video URL
- * @param {boolean} preferClientSide - If true, try client-side first
+ * @param {boolean} preferServerSide - If true, try server-side first (fallback mode)
  * @returns {Promise<string>} URL to use for video playback
  */
-async function getTranscodedVideoUrl(originalUrl, preferClientSide = false) {
-    if (preferClientSide) {
+async function getTranscodedVideoUrl(originalUrl, preferServerSide = false) {
+    if (preferServerSide) {
+        // Fallback: Use server-side transcoding
+        return forceAudioTranscoding(originalUrl);
+    } else {
+        // Default: Try client-side transcoding first (FFmpeg.wasm)
         try {
-            // Try client-side transcoding first
             const blobUrl = await transcodeVideoClientSide(originalUrl, (progress) => {
                 showMessage(`Transcoding: ${progress}%`, true);
             });
             return blobUrl;
         } catch (error) {
             console.warn('Client-side transcoding failed, falling back to server-side:', error);
-            // Fallback to server-side
+            // Fallback to server-side transcoding
             return forceAudioTranscoding(originalUrl);
         }
-    } else {
-        // Try server-side first (default)
-        const serverTranscodedUrl = forceAudioTranscoding(originalUrl);
-        
-        // Test if server transcoding works by trying to load the video
-        // If it fails, we could fallback to client-side, but that's complex
-        // For now, just return server-transcoded URL
-        return serverTranscodedUrl;
     }
 }
 
@@ -2223,9 +2218,8 @@ async function playMovieInline(movieUrl, movieTitle) {
         videoElement.style.maxHeight = 'calc(100vh - 150px)'; 
 
         const sourceElement = document.createElement('source');
-        // Try to get transcoded URL (server-side transcoding preferred by default)
-        // Set preferClientSide = true to use client-side FFmpeg.wasm transcoding
-        // Note: Client-side transcoding is resource-intensive and may be slow
+        // Use client-side FFmpeg.wasm transcoding by default
+        // Falls back to server-side transcoding if client-side fails
         const transcodedUrl = await getTranscodedVideoUrl(movieUrl, false);
         sourceElement.setAttribute('src', transcodedUrl);
         // Typ ist oft schwierig zu bestimmen, Browser können es oft selbst.
