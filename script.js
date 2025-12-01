@@ -2211,10 +2211,6 @@ async function playMovieInline(movieUrl, movieTitle) {
 
     showMessage("Loading movie '" + movieTitle + "'...");
     try {
-        // Die movieUrl wird direkt übergeben und enthält bereits den Token
-        // Keine weitere Fetch-Anfrage nötig, um die URL zu bekommen, es sei denn, wir bräuchten spezifische Container-Infos etc.
-        // Für dieses Beispiel gehen wir davon aus, die URL ist direkt abspielbar.
-
         videoPlayerContainer.innerHTML = ''; // Vorherigen Inhalt leeren
 
         const videoElement = document.createElement('video');
@@ -2225,8 +2221,9 @@ async function playMovieInline(movieUrl, movieTitle) {
         videoElement.style.maxHeight = 'calc(100vh - 150px)'; 
 
         const sourceElement = document.createElement('source');
-        // Try to get transcoded URL (server-side transcoding preferred)
-        // Client-side transcoding can be enabled by setting preferClientSide = true
+        // Try to get transcoded URL (server-side transcoding preferred by default)
+        // Set preferClientSide = true to use client-side FFmpeg.wasm transcoding
+        // Note: Client-side transcoding is resource-intensive and may be slow
         const transcodedUrl = await getTranscodedVideoUrl(movieUrl, false);
         sourceElement.setAttribute('src', transcodedUrl);
         // Typ ist oft schwierig zu bestimmen, Browser können es oft selbst.
