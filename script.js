@@ -174,109 +174,7 @@ async function getAvailableSections() {
     }
 }
 
-// Plex API: Get available filters for a section
-async function getAvailableFilters(sectionId) {
-    try {
-        const url = localStorage.getItem('selected_url');
-        const token = localStorage.getItem('selected_token');
-        if (!url || !token || !sectionId) return [];
-        
-        const response = await fetch(`${url}/library/sections/${sectionId}/filters?X-Plex-Token=${token}`);
-        const data = await response.text();
-        const parser = new DOMParser();
-        const xml = parser.parseFromString(data, "text/xml");
-        
-        return parseFiltersFromXML(xml);
-    } catch (error) {
-        console.error("Error fetching filters:", error);
-        return [];
-    }
-}
-
-// Parse filters from XML
-function parseFiltersFromXML(xml) {
-    const filters = [];
-    const filterElements = xml.getElementsByTagName("Filter");
-    for (let filter of filterElements) {
-        filters.push({
-            key: filter.getAttribute('key'),
-            title: filter.getAttribute('title'),
-            type: filter.getAttribute('type'),
-            filterType: filter.getAttribute('filterType')
-        });
-    }
-    return filters;
-}
-
-// Plex API: Get available sorts for a section
-async function getAvailableSorts(sectionId) {
-    try {
-        const url = localStorage.getItem('selected_url');
-        const token = localStorage.getItem('selected_token');
-        if (!url || !token || !sectionId) return [];
-        
-        const response = await fetch(`${url}/library/sections/${sectionId}/sorts?X-Plex-Token=${token}`);
-        const data = await response.text();
-        const parser = new DOMParser();
-        const xml = parser.parseFromString(data, "text/xml");
-        
-        return parseSortsFromXML(xml);
-    } catch (error) {
-        console.error("Error fetching sorts:", error);
-        return [];
-    }
-}
-
-// Parse sorts from XML
-function parseSortsFromXML(xml) {
-    const sorts = [];
-    const sortElements = xml.getElementsByTagName("Sort");
-    for (let sort of sortElements) {
-        sorts.push({
-            key: sort.getAttribute('key'),
-            title: sort.getAttribute('title'),
-            defaultDirection: sort.getAttribute('defaultDirection') || 'asc'
-        });
-    }
-    return sorts;
-}
-
-// Advanced search with filters, sort, and pagination
-async function advancedSearch(query, filters = {}, sort = {}, pagination = {}) {
-    const url = localStorage.getItem('selected_url');
-    const token = localStorage.getItem('selected_token');
-    if (!url || !token) return null;
-    
-    const params = new URLSearchParams({
-        query: query || '',
-        'X-Plex-Token': token
-    });
-    
-    // Add filters
-    Object.entries(filters).forEach(([key, value]) => {
-        if (value) {
-            params.append('filter', `${key}=${value}`);
-        }
-    });
-    
-    // Add sort
-    if (sort.field) {
-        params.append('sort', sort.field);
-        params.append('order', sort.order || 'asc');
-    }
-    
-    // Add pagination
-    if (pagination.limit) params.append('limit', pagination.limit);
-    if (pagination.offset) params.append('offset', pagination.offset);
-    
-    try {
-        const response = await fetch(`${url}/search?${params.toString()}`);
-        return await response.text();
-    } catch (error) {
-        console.error("Error in advanced search:", error);
-        return null;
-    }
-}
+// Old API functions removed - replaced by SearchAPI class
 
 // Plex API: Get autocomplete suggestions
 async function getAutocompleteSuggestions(query, sectionId = null) {
@@ -1598,15 +1496,11 @@ function saveSearchState() {
 }
 
 function restoreSearchState() {
-    // Restore previous search results if available
-    if (previousSearchResults && bodyDiv) {
-        bodyDiv.innerHTML = previousSearchResults.html;
-        if (searchBar && previousSearchResults.searchTerm) {
-            searchBar.value = previousSearchResults.searchTerm;
-        }
-        previousSearchResults = null;
+    // Restore search results using SearchController
+    if (window.searchController) {
+        window.searchController.restoreResults();
     } else {
-        // Clear body if no previous state
+        // Fallback: clear body if no controller
         if (bodyDiv) {
             bodyDiv.innerHTML = '';
         }
@@ -2677,96 +2571,1184 @@ async function fetchUrlsAndGenerateM3U(selectedEpisodesData, fileName) {
     showMessage(`Custom M3U playlist '${fileName}' created with ${successfullyFetchedCount} of ${selectedEpisodesData.length} selected episodes.`);
 }
 
+// ============================================================================
+// NEW SEARCH ARCHITECTURE - Modular Classes
+// ============================================================================
+
+/**
+ * SearchState - Manages search state, history, and persistence
+ */
+class SearchState {
+    constructor() {
+        this.currentQuery = '';
+        this.currentFilters = {};
+        this.currentSort = {};
+        this.currentPage = { limit: 50, offset: 0 };
+        this.lastResults = null;
+        this.historyKey = SEARCH_HISTORY_KEY;
+        this.maxHistoryItems = MAX_HISTORY_ITEMS;
+    }
+
+    /**
+     * Save query to search history
+     * @param {string} query - Search query to save
+     */
+    saveToHistory(query) {
+        if (!this.isValidQuery(query)) return;
+        
+        let history = this.getHistory();
+        // Remove if already exists
+        history = history.filter(item => item.toLowerCase() !== query.toLowerCase());
+        // Add to beginning
+        history.unshift(query);
+        // Limit to max items
+        history = history.slice(0, this.maxHistoryItems);
+        
+        try {
+            localStorage.setItem(this.historyKey, JSON.stringify(history));
+        } catch (error) {
+            console.error('Error saving search history:', error);
+        }
+    }
+
+    /**
+     * Get search history from localStorage
+     * @returns {string[]} Array of search queries
+     */
+    getHistory() {
+        try {
+            const history = localStorage.getItem(this.historyKey);
+            return history ? JSON.parse(history) : [];
+        } catch (error) {
+            console.error('Error reading search history:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Remove query from history
+     * @param {string} query - Query to remove
+     */
+    removeFromHistory(query) {
+        let history = this.getHistory();
+        history = history.filter(item => item.toLowerCase() !== query.toLowerCase());
+        
+        try {
+            localStorage.setItem(this.historyKey, JSON.stringify(history));
+        } catch (error) {
+            console.error('Error removing from search history:', error);
+        }
+    }
+
+    /**
+     * Save current search results for back navigation
+     * @param {Array} results - Search results to save
+     * @param {string} query - Search query
+     */
+    saveResults(results, query) {
+        this.lastResults = {
+            results: results,
+            query: query,
+            filters: { ...this.currentFilters },
+            sort: { ...this.currentSort }
+        };
+    }
+
+    /**
+     * Restore last search results
+     * @returns {Object|null} Saved results or null
+     */
+    restoreResults() {
+        return this.lastResults;
+    }
+
+    /**
+     * Clear saved results
+     */
+    clearResults() {
+        this.lastResults = null;
+    }
+
+    /**
+     * Validate search query
+     * @param {string} query - Query to validate
+     * @returns {boolean} True if valid
+     */
+    isValidQuery(query) {
+        return query && typeof query === 'string' && query.trim().length > 0;
+    }
+
+    /**
+     * Update current state
+     * @param {string} query - Current query
+     * @param {Object} filters - Current filters
+     * @param {Object} sort - Current sort
+     */
+    updateState(query, filters = {}, sort = {}) {
+        this.currentQuery = query || '';
+        this.currentFilters = filters;
+        this.currentSort = sort;
+    }
+}
+
+/**
+ * SearchDataParser - Parses XML responses from Plex API
+ */
+class SearchDataParser {
+    /**
+     * Parse search results XML into structured objects
+     * @param {string} xmlText - XML response from Plex API
+     * @returns {Array} Array of normalized media items
+     */
+    parseSearchResults(xmlText) {
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(xmlText, "text/xml");
+        
+        const results = [];
+        const resultDict = {};
+        
+        // Parse movies (Video elements)
+        const movies = xml.getElementsByTagName("Video");
+        for (let i = 0; i < movies.length; i++) {
+            const movie = movies[i];
+            const guid = movie.getAttribute('guid');
+            if (!guid) continue;
+            
+            if (!resultDict[guid]) {
+                resultDict[guid] = this.normalizeMediaItem(movie, 'movie');
+            }
+            
+            // Add file/library info
+            const library = movie.getAttribute('librarySectionTitle');
+            const key = movie.getAttribute('key');
+            if (library && key) {
+                if (!resultDict[guid].files) {
+                    resultDict[guid].files = [];
+                }
+                resultDict[guid].files.push({ library, key });
+            }
+        }
+        
+        // Parse shows (Directory elements)
+        const shows = xml.getElementsByTagName("Directory");
+        for (let i = 0; i < shows.length; i++) {
+            const show = shows[i];
+            const guid = show.getAttribute('guid');
+            if (!guid) continue;
+            
+            if (!resultDict[guid]) {
+                resultDict[guid] = this.normalizeMediaItem(show, 'show');
+            }
+            
+            // Add file/library info
+            const library = show.getAttribute('librarySectionTitle');
+            const key = show.getAttribute('key');
+            if (library && key) {
+                if (!resultDict[guid].files) {
+                    resultDict[guid].files = [];
+                }
+                resultDict[guid].files.push({ library, key });
+            }
+        }
+        
+        // Convert dict to array
+        return Object.values(resultDict);
+    }
+
+    /**
+     * Normalize a media item (movie or show) to unified structure
+     * @param {Element} element - XML element (Video or Directory)
+     * @param {string} type - 'movie' or 'show'
+     * @returns {Object} Normalized media item
+     */
+    normalizeMediaItem(element, type) {
+        const item = {
+            title: element.getAttribute('title') || '',
+            type: type,
+            year: element.getAttribute('year') || null,
+            summary: element.getAttribute('summary') || '',
+            duration: element.getAttribute('duration') ? Math.round(parseInt(element.getAttribute('duration')) / 1000 / 60) : null,
+            audienceRating: element.getAttribute('audienceRating') || null,
+            thumb: element.getAttribute('thumb') || '',
+            art: element.getAttribute('art') || '',
+            genres: [],
+            files: []
+        };
+
+        // Parse genres
+        const genres = element.getElementsByTagName("Genre");
+        for (let i = 0; i < genres.length; i++) {
+            const genreTag = genres[i].getAttribute('tag');
+            if (genreTag) {
+                item.genres.push(genreTag);
+            }
+        }
+
+        return item;
+    }
+
+    /**
+     * Parse autocomplete suggestions from XML
+     * @param {string} xmlText - XML response from Plex API
+     * @returns {Array} Array of suggestion objects
+     */
+    parseAutocomplete(xmlText) {
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(xmlText, "text/xml");
+        
+        const suggestions = [];
+        
+        // Parse Directory elements (shows)
+        const directories = xml.getElementsByTagName("Directory");
+        for (let i = 0; i < directories.length; i++) {
+            const dir = directories[i];
+            const title = dir.getAttribute('title');
+            if (title) {
+                suggestions.push({
+                    title: title,
+                    type: dir.getAttribute('type') || 'show',
+                    key: dir.getAttribute('key')
+                });
+            }
+        }
+        
+        // Parse Video elements (movies)
+        const videos = xml.getElementsByTagName("Video");
+        for (let i = 0; i < videos.length; i++) {
+            const video = videos[i];
+            const title = video.getAttribute('title');
+            if (title) {
+                suggestions.push({
+                    title: title,
+                    type: video.getAttribute('type') || 'movie',
+                    key: video.getAttribute('key')
+                });
+            }
+        }
+        
+        return suggestions;
+    }
+
+    /**
+     * Parse filters from XML
+     * @param {string} xmlText - XML response from Plex API
+     * @returns {Array} Array of filter objects
+     */
+    parseFilters(xmlText) {
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(xmlText, "text/xml");
+        
+        const filters = [];
+        const filterElements = xml.getElementsByTagName("Filter");
+        
+        for (let i = 0; i < filterElements.length; i++) {
+            const filter = filterElements[i];
+            filters.push({
+                key: filter.getAttribute('key'),
+                title: filter.getAttribute('title'),
+                type: filter.getAttribute('type'),
+                filterType: filter.getAttribute('filterType')
+            });
+        }
+        
+        return filters;
+    }
+
+    /**
+     * Parse sorts from XML
+     * @param {string} xmlText - XML response from Plex API
+     * @returns {Array} Array of sort objects
+     */
+    parseSorts(xmlText) {
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(xmlText, "text/xml");
+        
+        const sorts = [];
+        const sortElements = xml.getElementsByTagName("Sort");
+        
+        for (let i = 0; i < sortElements.length; i++) {
+            const sort = sortElements[i];
+            sorts.push({
+                key: sort.getAttribute('key'),
+                title: sort.getAttribute('title'),
+                defaultDirection: sort.getAttribute('defaultDirection') || 'asc'
+            });
+        }
+        
+        return sorts;
+    }
+}
+
+/**
+ * SearchAPI - Handles all Plex API calls for search functionality
+ */
+class SearchAPI {
+    constructor() {
+        this.parser = new SearchDataParser();
+        this.currentAbortController = null;
+        this.currentAutocompleteAbortController = null;
+    }
+
+    /**
+     * Get base URL and token from localStorage
+     * @returns {Object} {url, token} or null
+     */
+    getAuth() {
+        const url = localStorage.getItem('selected_url');
+        const token = localStorage.getItem('selected_token');
+        if (!url || !token) return null;
+        return { url, token };
+    }
+
+    /**
+     * Perform search with filters, sort, and pagination
+     * @param {string} query - Search query
+     * @param {Object} options - Search options (filters, sort, pagination)
+     * @param {AbortSignal} signal - AbortSignal for cancellation
+     * @returns {Promise<Array>} Array of normalized media items
+     */
+    async search(query, options = {}, signal = null) {
+        const auth = this.getAuth();
+        if (!auth) {
+            throw new Error('No authentication available');
+        }
+
+        // Cancel previous request
+        if (this.currentAbortController) {
+            this.currentAbortController.abort();
+        }
+        this.currentAbortController = new AbortController();
+        const abortSignal = signal || this.currentAbortController.signal;
+
+        try {
+            const params = new URLSearchParams({
+                query: query || '',
+                'X-Plex-Token': auth.token
+            });
+
+            // Add filters
+            if (options.filters) {
+                Object.entries(options.filters).forEach(([key, value]) => {
+                    if (value) {
+                        params.append('filter', `${key}=${value}`);
+                    }
+                });
+            }
+
+            // Add sort
+            if (options.sort && options.sort.field) {
+                params.append('sort', options.sort.field);
+                params.append('order', options.sort.order || 'asc');
+            }
+
+            // Add pagination
+            if (options.pagination) {
+                if (options.pagination.limit) {
+                    params.append('limit', options.pagination.limit);
+                }
+                if (options.pagination.offset) {
+                    params.append('offset', options.pagination.offset);
+                }
+            }
+
+            const response = await fetch(`${auth.url}/search?${params.toString()}`, {
+                signal: abortSignal
+            });
+
+            if (!response.ok) {
+                throw new Error(`Search failed: ${response.status} ${response.statusText}`);
+            }
+
+            const xmlText = await response.text();
+            return this.parser.parseSearchResults(xmlText);
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                throw new Error('Search was cancelled');
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Get autocomplete suggestions
+     * @param {string} query - Search query
+     * @param {string|null} sectionId - Optional section ID
+     * @param {AbortSignal} signal - AbortSignal for cancellation
+     * @returns {Promise<Array>} Array of suggestion objects
+     */
+    async getAutocomplete(query, sectionId = null, signal = null) {
+        if (!query || query.trim().length === 0) {
+            return [];
+        }
+
+        const auth = this.getAuth();
+        if (!auth) {
+            return [];
+        }
+
+        // Cancel previous request
+        if (this.currentAutocompleteAbortController) {
+            this.currentAutocompleteAbortController.abort();
+        }
+        this.currentAutocompleteAbortController = new AbortController();
+        const abortSignal = signal || this.currentAutocompleteAbortController.signal;
+
+        try {
+            let autocompleteUrl;
+            if (sectionId) {
+                autocompleteUrl = `${auth.url}/library/sections/${sectionId}/autocomplete?query=${encodeURIComponent(query)}&X-Plex-Token=${auth.token}`;
+            } else {
+                autocompleteUrl = `${auth.url}/search?query=${encodeURIComponent(query)}&X-Plex-Token=${auth.token}&limit=10`;
+            }
+
+            const response = await fetch(autocompleteUrl, {
+                signal: abortSignal
+            });
+
+            if (!response.ok) {
+                return [];
+            }
+
+            const xmlText = await response.text();
+            return this.parser.parseAutocomplete(xmlText);
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                return [];
+            }
+            console.error('Error fetching autocomplete:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get available filters for a section
+     * @param {string} sectionId - Section ID
+     * @returns {Promise<Array>} Array of filter objects
+     */
+    async getFilters(sectionId) {
+        const auth = this.getAuth();
+        if (!auth || !sectionId) {
+            return [];
+        }
+
+        try {
+            const response = await fetch(`${auth.url}/library/sections/${sectionId}/filters?X-Plex-Token=${auth.token}`);
+            if (!response.ok) {
+                return [];
+            }
+
+            const xmlText = await response.text();
+            return this.parser.parseFilters(xmlText);
+        } catch (error) {
+            console.error('Error fetching filters:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get available sorts for a section
+     * @param {string} sectionId - Section ID
+     * @returns {Promise<Array>} Array of sort objects
+     */
+    async getSorts(sectionId) {
+        const auth = this.getAuth();
+        if (!auth || !sectionId) {
+            return [];
+        }
+
+        try {
+            const response = await fetch(`${auth.url}/library/sections/${sectionId}/sorts?X-Plex-Token=${auth.token}`);
+            if (!response.ok) {
+                return [];
+            }
+
+            const xmlText = await response.text();
+            return this.parser.parseSorts(xmlText);
+        } catch (error) {
+            console.error('Error fetching sorts:', error);
+            return [];
+        }
+    }
+}
+
+/**
+ * SearchUI - Handles all UI rendering for search functionality
+ */
+class SearchUI {
+    constructor() {
+        this.bodyDiv = bodyDiv;
+        this.searchBar = searchBar;
+        this.autocompleteContainer = document.getElementById('autocompleteContainer');
+        this.filterBar = document.getElementById('filterBar');
+        this.typeFilter = document.getElementById('typeFilter');
+        this.sortSelect = document.getElementById('sortSelect');
+    }
+
+    /**
+     * Highlight search term in text
+     * @param {string} text - Text to highlight in
+     * @param {string} searchTerm - Term to highlight
+     * @returns {string} HTML with highlighted terms
+     */
+    highlightSearchTerm(text, searchTerm) {
+        if (!text || !searchTerm) return this.escapeHtml(text || '');
+        
+        const escapedText = this.escapeHtml(text);
+        const escapedTerm = this.escapeHtml(searchTerm);
+        const regex = new RegExp(`(${escapedTerm})`, 'gi');
+        return escapedText.replace(regex, '<mark>$1</mark>');
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     * @param {string} text - Text to escape
+     * @returns {string} Escaped text
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    /**
+     * Render search results
+     * @param {Array} results - Array of media items
+     * @param {string} searchTerm - Search term for highlighting
+     */
+    renderResults(results, searchTerm) {
+        if (!this.bodyDiv) return;
+
+        this.bodyDiv.innerHTML = '';
+
+        if (results.length === 0) {
+            this.showEmptyState(searchTerm);
+            return;
+        }
+
+        results.forEach(item => {
+            const card = this.createMediaCard(item, searchTerm);
+            this.bodyDiv.appendChild(card);
+        });
+    }
+
+    /**
+     * Create a media card element
+     * @param {Object} item - Media item data
+     * @param {string} searchTerm - Search term for highlighting
+     * @returns {HTMLElement} Media card element
+     */
+    createMediaCard(item, searchTerm) {
+        const selectedUrl = localStorage.getItem('selected_url');
+        const selectedToken = localStorage.getItem('selected_token');
+
+        // Create card container
+        const div_mediaCard = document.createElement('div');
+        div_mediaCard.className = 'mc-card';
+
+        // 1. Image Area
+        const mc_image_area = document.createElement('div');
+        mc_image_area.className = 'mc-image-area';
+
+        const img_mediaCard_Image = document.createElement('img');
+        img_mediaCard_Image.className = 'mc-image';
+        img_mediaCard_Image.alt = item.title + ' cover';
+        img_mediaCard_Image.src = selectedUrl + item.thumb + "?X-Plex-Token=" + selectedToken;
+
+        const mc_image_overlay = document.createElement('div');
+        mc_image_overlay.className = 'mc-image-overlay';
+
+        const mc_title_overlay = document.createElement('h3');
+        mc_title_overlay.className = 'mc-title-overlay';
+        mc_title_overlay.innerHTML = this.highlightSearchTerm(item.title, searchTerm);
+        mc_image_overlay.appendChild(mc_title_overlay);
+
+        let mc_meta_overlay_text = item.year ? item.year : '';
+        if (item.type) {
+            mc_meta_overlay_text += (mc_meta_overlay_text ? ' • ' : '') + item.type.charAt(0).toUpperCase() + item.type.slice(1);
+        }
+        if (mc_meta_overlay_text) {
+            const mc_meta_overlay = document.createElement('p');
+            mc_meta_overlay.className = 'mc-meta-overlay';
+            mc_meta_overlay.textContent = mc_meta_overlay_text;
+            mc_image_overlay.appendChild(mc_meta_overlay);
+        }
+
+        mc_image_area.appendChild(img_mediaCard_Image);
+        mc_image_area.appendChild(mc_image_overlay);
+
+        // Add click handler for detail view
+        mc_image_area.style.cursor = 'pointer';
+        mc_image_area.addEventListener('click', () => {
+            if (item.files && item.files.length > 0) {
+                navigateToDetail(item.type, item.files[0].key, item);
+            }
+        });
+
+        // 2. Details Area
+        const mc_details_area = document.createElement('div');
+        mc_details_area.className = 'mc-details-area';
+
+        // Summary
+        const mc_summary_div = document.createElement('div');
+        mc_summary_div.className = 'mc-summary';
+        const p_summary = document.createElement('p');
+        const temp_summary = item.summary || "No summary available.";
+        p_summary.innerHTML = this.highlightSearchTerm(temp_summary, searchTerm);
+        mc_summary_div.appendChild(p_summary);
+        mc_details_area.appendChild(mc_summary_div);
+
+        // Full Meta
+        const mc_meta_full_div = document.createElement('div');
+        mc_meta_full_div.className = 'mc-meta-full';
+
+        const general_info_text = (item.genres && item.genres.length > 0 ? item.genres.join(', ') : 'N/A') +
+            (item.duration ? " • " + Math.floor(item.duration / 60) + "h " + item.duration % 60 + "min" : '');
+        const p_general_info = document.createElement('p');
+        p_general_info.className = 'mc-general-info';
+        p_general_info.textContent = general_info_text;
+        mc_meta_full_div.appendChild(p_general_info);
+
+        if (item.audienceRating) {
+            const p_rating = document.createElement('p');
+            p_rating.className = 'mc-rating';
+            p_rating.textContent = 'Rating: ' + item.audienceRating;
+            if (item.audienceRating > 7.9) { p_rating.classList.add("good"); }
+            else if (item.audienceRating > 5.9) { p_rating.classList.add("okay"); }
+            else if (item.audienceRating > 4.9) { p_rating.classList.add("bad"); }
+            else { p_rating.classList.add("worst"); }
+            mc_meta_full_div.appendChild(p_rating);
+        }
+        mc_details_area.appendChild(mc_meta_full_div);
+
+        // Actions
+        const mc_actions_div = document.createElement('div');
+        mc_actions_div.className = 'mc-actions';
+        if (item.files && item.files.length > 0) {
+            item.files.forEach((file, index) => {
+                const action_button = document.createElement('a');
+                action_button.className = 'mc-action-button';
+                action_button.textContent = (file.library || 'Download') + (item.files.length > 1 ? ' ' + (index + 1) : '');
+                const escapedTitle = String(item.title).replace(/'/g, "\\'").replace(/"/g, "\\\"");
+                if (item.type === 'movie') {
+                    action_button.setAttribute("onclick", "downloadMovie('" + file.key + "', '" + escapedTitle + "');");
+                } else if (item.type === 'show') {
+                    action_button.setAttribute("onclick", "downloadShow('" + file.key + "');");
+                }
+                mc_actions_div.appendChild(action_button);
+            });
+        } else {
+            const no_action_text = document.createElement('p');
+            no_action_text.className = 'mc-no-actions';
+            no_action_text.textContent = 'No download sources available.';
+            mc_actions_div.appendChild(no_action_text);
+        }
+        mc_details_area.appendChild(mc_actions_div);
+
+        // Assemble card
+        div_mediaCard.appendChild(mc_image_area);
+        div_mediaCard.appendChild(mc_details_area);
+
+        return div_mediaCard;
+    }
+
+    /**
+     * Render autocomplete dropdown
+     * @param {Array} apiSuggestions - API suggestions
+     * @param {Array} historySuggestions - History suggestions
+     * @param {string} query - Current query
+     */
+    renderAutocomplete(apiSuggestions, historySuggestions, query) {
+        if (!this.autocompleteContainer) return;
+
+        this.autocompleteContainer.innerHTML = '';
+        this.autocompleteContainer.style.display = 'block';
+
+        // API suggestions
+        if (apiSuggestions.length > 0) {
+            const apiSection = document.createElement('div');
+            apiSection.className = 'autocomplete-section';
+
+            apiSuggestions.slice(0, 5).forEach(suggestion => {
+                const item = document.createElement('div');
+                item.className = 'autocomplete-item';
+                item.innerHTML = `<span class="autocomplete-title">${this.highlightSearchTerm(suggestion.title, query)}</span> <span class="autocomplete-type">${suggestion.type}</span>`;
+                item.onclick = () => {
+                    if (this.searchBar) {
+                        this.searchBar.value = suggestion.title;
+                    }
+                    this.hideAutocomplete();
+                    // Trigger search via controller
+                    if (window.searchController) {
+                        window.searchController.handleSearch(suggestion.title);
+                    }
+                };
+                apiSection.appendChild(item);
+            });
+
+            this.autocompleteContainer.appendChild(apiSection);
+        }
+
+        // History suggestions
+        if (historySuggestions.length > 0) {
+            const historySection = document.createElement('div');
+            historySection.className = 'autocomplete-section autocomplete-history';
+            const historyTitle = document.createElement('div');
+            historyTitle.className = 'autocomplete-section-title';
+            historyTitle.textContent = 'Recent searches';
+            historySection.appendChild(historyTitle);
+
+            historySuggestions.forEach(historyItem => {
+                if (!apiSuggestions.some(s => s.title.toLowerCase() === historyItem.toLowerCase())) {
+                    const item = document.createElement('div');
+                    item.className = 'autocomplete-item autocomplete-history-item';
+                    item.innerHTML = `<span class="autocomplete-title">${this.highlightSearchTerm(historyItem, query)}</span>`;
+                    item.onclick = () => {
+                        if (this.searchBar) {
+                            this.searchBar.value = historyItem;
+                        }
+                        this.hideAutocomplete();
+                        if (window.searchController) {
+                            window.searchController.handleSearch(historyItem);
+                        }
+                    };
+                    historySection.appendChild(item);
+                }
+            });
+
+            if (historySection.children.length > 1) { // More than just the title
+                this.autocompleteContainer.appendChild(historySection);
+            }
+        }
+    }
+
+    /**
+     * Hide autocomplete dropdown
+     */
+    hideAutocomplete() {
+        if (this.autocompleteContainer) {
+            this.autocompleteContainer.style.display = 'none';
+            this.autocompleteContainer.innerHTML = '';
+        }
+    }
+
+    /**
+     * Show loading state
+     */
+    showLoadingState() {
+        if (this.bodyDiv) {
+            this.bodyDiv.innerHTML = '';
+        }
+        showMessage("Searching...", true);
+    }
+
+    /**
+     * Show error state
+     * @param {Error} error - Error object
+     * @param {string} searchTerm - Search term that failed
+     */
+    showErrorState(error, searchTerm) {
+        hideMessage();
+        
+        if (!this.bodyDiv) return;
+
+        this.bodyDiv.innerHTML = '';
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'search-error-container';
+
+        const errorTitle = document.createElement('h2');
+        errorTitle.textContent = 'Search Error';
+        errorDiv.appendChild(errorTitle);
+
+        const errorMessage = document.createElement('p');
+        errorMessage.textContent = error.message || 'An error occurred while searching.';
+        errorDiv.appendChild(errorMessage);
+
+        const retryButton = document.createElement('button');
+        retryButton.className = 'retry-search-button';
+        retryButton.textContent = 'Retry Search';
+        retryButton.onclick = () => {
+            if (window.searchController) {
+                window.searchController.handleSearch(searchTerm);
+            }
+        };
+        errorDiv.appendChild(retryButton);
+
+        this.bodyDiv.appendChild(errorDiv);
+    }
+
+    /**
+     * Show empty state (no results)
+     * @param {string} searchTerm - Search term that returned no results
+     */
+    showEmptyState(searchTerm) {
+        hideMessage();
+        
+        if (!this.bodyDiv) return;
+
+        this.bodyDiv.innerHTML = '';
+        const noResultsDiv = document.createElement('div');
+        noResultsDiv.className = 'no-results-container';
+
+        const noResultsTitle = document.createElement('h2');
+        noResultsTitle.textContent = 'No results found';
+        noResultsDiv.appendChild(noResultsTitle);
+
+        const noResultsMessage = document.createElement('p');
+        noResultsMessage.textContent = `We couldn't find any media matching "${searchTerm}".`;
+        noResultsDiv.appendChild(noResultsMessage);
+
+        const suggestions = document.createElement('ul');
+        suggestions.className = 'search-suggestions';
+        suggestions.innerHTML = `
+            <li>Check your spelling</li>
+            <li>Try different keywords</li>
+            <li>Remove filters</li>
+        `;
+        noResultsDiv.appendChild(suggestions);
+
+        this.bodyDiv.appendChild(noResultsDiv);
+    }
+
+    /**
+     * Show filter bar
+     */
+    showFilterBar() {
+        if (this.filterBar) {
+            this.filterBar.style.display = 'flex';
+        }
+    }
+
+    /**
+     * Hide filter bar
+     */
+    hideFilterBar() {
+        if (this.filterBar) {
+            this.filterBar.style.display = 'none';
+        }
+    }
+}
+
+/**
+ * SearchController - Main orchestrator for search functionality
+ */
+class SearchController {
+    constructor() {
+        this.api = new SearchAPI();
+        this.ui = new SearchUI();
+        this.state = new SearchState();
+        this.searchTimeout = null;
+        this.autocompleteTimeout = null;
+        this.debounceDelay = 500;
+        this.autocompleteDelay = 300;
+    }
+
+    /**
+     * Initialize the search controller and register event listeners
+     */
+    init() {
+        if (!this.ui.searchBar) return;
+
+        // Search input event
+        this.ui.searchBar.addEventListener('input', () => {
+            this.handleInput();
+        });
+
+        // Enter key for immediate search
+        this.ui.searchBar.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.keyCode === 13) {
+                event.preventDefault();
+                this.cancelDebouncedSearch();
+                const query = this.ui.searchBar.value;
+                if (this.state.isValidQuery(query)) {
+                    this.handleSearch(query);
+                }
+            }
+        });
+
+        // Clear button
+        const clearButton = document.getElementById('searchClearButton');
+        if (clearButton) {
+            clearButton.addEventListener('click', () => {
+                this.handleClear();
+            });
+        }
+
+        // Filter and sort changes
+        if (this.ui.typeFilter) {
+            this.ui.typeFilter.addEventListener('change', () => {
+                if (this.ui.searchBar && this.ui.searchBar.value) {
+                    this.handleSearch(this.ui.searchBar.value);
+                }
+            });
+        }
+
+        if (this.ui.sortSelect) {
+            this.ui.sortSelect.addEventListener('change', () => {
+                if (this.ui.searchBar && this.ui.searchBar.value) {
+                    this.handleSearch(this.ui.searchBar.value);
+                }
+            });
+        }
+
+        // Reset filters button
+        const resetFiltersButton = document.getElementById('resetFiltersButton');
+        if (resetFiltersButton) {
+            resetFiltersButton.addEventListener('click', () => {
+                if (this.ui.typeFilter) this.ui.typeFilter.value = '';
+                if (this.ui.sortSelect) this.ui.sortSelect.value = '';
+                if (this.ui.searchBar && this.ui.searchBar.value) {
+                    this.handleSearch(this.ui.searchBar.value);
+                }
+            });
+        }
+
+        // Hide autocomplete when clicking outside
+        document.addEventListener('click', (event) => {
+            const isClickInsideAutocomplete = this.ui.autocompleteContainer && 
+                this.ui.autocompleteContainer.contains(event.target);
+            const isClickInsideSearchBar = this.ui.searchBar && 
+                this.ui.searchBar.contains(event.target);
+
+            if (!isClickInsideAutocomplete && !isClickInsideSearchBar) {
+                this.ui.hideAutocomplete();
+            }
+        });
+
+        // Search button
+        const searchButton = document.getElementById('searchbutton');
+        if (searchButton) {
+            searchButton.addEventListener('click', () => {
+                const query = this.ui.searchBar ? this.ui.searchBar.value : '';
+                if (this.state.isValidQuery(query)) {
+                    this.handleSearch(query);
+                }
+            });
+        }
+    }
+
+    /**
+     * Handle input event (debounced autocomplete and search)
+     */
+    handleInput() {
+        const query = this.ui.searchBar ? this.ui.searchBar.value : '';
+        
+        // Update clear button visibility
+        const clearButton = document.getElementById('searchClearButton');
+        if (clearButton) {
+            clearButton.style.display = query.length > 0 ? 'block' : 'none';
+        }
+
+        // Debounced autocomplete
+        this.handleAutocomplete(query);
+
+        // Debounced search
+        this.cancelDebouncedSearch();
+        this.searchTimeout = setTimeout(() => {
+            if (this.state.isValidQuery(query)) {
+                this.handleSearch(query);
+            }
+        }, this.debounceDelay);
+    }
+
+    /**
+     * Handle search (main search function)
+     * @param {string} query - Search query
+     */
+    async handleSearch(query) {
+        if (!this.state.isValidQuery(query)) {
+            return;
+        }
+
+        // Save to history
+        this.state.saveToHistory(query);
+
+        // Show loading state
+        this.ui.showLoadingState();
+        this.ui.showFilterBar();
+
+        // Get filters and sort from UI
+        const filters = {};
+        if (this.ui.typeFilter && this.ui.typeFilter.value) {
+            filters.type = this.ui.typeFilter.value;
+        }
+
+        const sort = {};
+        if (this.ui.sortSelect && this.ui.sortSelect.value) {
+            const sortParts = this.ui.sortSelect.value.split(':');
+            if (sortParts.length === 2) {
+                sort.field = sortParts[0];
+                sort.order = sortParts[1];
+            }
+        }
+
+        // Update state
+        this.state.updateState(query, filters, sort);
+
+        try {
+            // Perform search
+            const results = await this.api.search(query, {
+                filters: filters,
+                sort: sort,
+                pagination: {}
+            });
+
+            // Hide loading message
+            hideMessage();
+
+            // Save results for back navigation
+            this.state.saveResults(results, query);
+
+            // Render results
+            this.ui.renderResults(results, query);
+        } catch (error) {
+            console.error('Search error:', error);
+            this.ui.showErrorState(error, query);
+        }
+    }
+
+    /**
+     * Handle autocomplete (debounced)
+     * @param {string} query - Search query
+     */
+    async handleAutocomplete(query) {
+        if (!this.state.isValidQuery(query)) {
+            this.ui.hideAutocomplete();
+            return;
+        }
+
+        // Cancel previous autocomplete
+        if (this.autocompleteTimeout) {
+            clearTimeout(this.autocompleteTimeout);
+        }
+
+        this.autocompleteTimeout = setTimeout(async () => {
+            try {
+                // Get API suggestions
+                const apiSuggestions = await this.api.getAutocomplete(query);
+
+                // Get history suggestions
+                const history = this.state.getHistory();
+                const historySuggestions = history.slice(0, 5).filter(item =>
+                    item.toLowerCase().includes(query.toLowerCase())
+                );
+
+                // Render autocomplete
+                this.ui.renderAutocomplete(apiSuggestions, historySuggestions, query);
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Autocomplete error:', error);
+                }
+            }
+        }, this.autocompleteDelay);
+    }
+
+    /**
+     * Handle clear button click
+     */
+    handleClear() {
+        if (this.ui.searchBar) {
+            this.ui.searchBar.value = '';
+        }
+        this.ui.hideAutocomplete();
+        
+        const clearButton = document.getElementById('searchClearButton');
+        if (clearButton) {
+            clearButton.style.display = 'none';
+        }
+
+        if (this.bodyDiv) {
+            this.bodyDiv.innerHTML = '';
+        }
+
+        this.ui.hideFilterBar();
+    }
+
+    /**
+     * Cancel debounced search
+     */
+    cancelDebouncedSearch() {
+        if (this.searchTimeout) {
+            clearTimeout(this.searchTimeout);
+            this.searchTimeout = null;
+        }
+    }
+
+    /**
+     * Restore previous search results
+     */
+    restoreResults() {
+        const saved = this.state.restoreResults();
+        if (saved && saved.results) {
+            this.ui.renderResults(saved.results, saved.query);
+            if (this.ui.searchBar) {
+                this.ui.searchBar.value = saved.query;
+            }
+            // Restore filters and sort
+            if (saved.filters && this.ui.typeFilter) {
+                this.ui.typeFilter.value = saved.filters.type || '';
+            }
+            if (saved.sort && this.ui.sortSelect) {
+                const sortValue = saved.sort.field && saved.sort.order 
+                    ? `${saved.sort.field}:${saved.sort.order}` 
+                    : '';
+                this.ui.sortSelect.value = sortValue;
+            }
+            this.ui.showFilterBar();
+        }
+    }
+}
+
 $(document).ready(function() {
     popupDiv.style.display = "none";
     popupDiv2.style.display = "none";
-    hideSearchHistory();
 
-    if (searchBar) {
-        searchBar.addEventListener('focus', displaySearchHistory);
-        
-        // Input event for debounced search and clear button visibility
-        searchBar.addEventListener('input', function() {
-            const clearButton = document.getElementById('searchClearButton');
-            if (clearButton) {
-                clearButton.style.display = searchBar.value.length > 0 ? 'block' : 'none';
+    // Initialize new search controller
+    window.searchController = new SearchController();
+    window.searchController.init();
+    
+    // Search history display on focus (using SearchState)
+    if (searchBar && searchHistoryContainer) {
+        searchBar.addEventListener('focus', function() {
+            const history = window.searchController.state.getHistory();
+            if (history.length === 0) {
+                searchHistoryContainer.style.display = "none";
+                return;
             }
-            // Trigger debounced autocomplete
-            debouncedAutocomplete();
-            // Trigger debounced search (will be cancelled if user continues typing)
-            debouncedSearcher();
+            
+            searchHistoryContainer.innerHTML = '';
+            searchHistoryContainer.style.display = "block";
+            
+            history.slice(0, MAX_HISTORY_ITEMS).forEach(query => {
+                const historyItem = document.createElement('div');
+                historyItem.className = 'search-history-item';
+                
+                const historyText = document.createElement('span');
+                historyText.textContent = query;
+                historyItem.appendChild(historyText);
+                
+                const removeButton = document.createElement('button');
+                removeButton.className = 'search-history-remove';
+                removeButton.textContent = '×';
+                removeButton.title = 'Remove from history';
+                removeButton.onclick = (e) => {
+                    e.stopPropagation();
+                    window.searchController.state.removeFromHistory(query);
+                    // Re-trigger focus to refresh
+                    searchBar.focus();
+                };
+                historyItem.appendChild(removeButton);
+                
+                historyItem.onclick = () => {
+                    if (searchBar) {
+                        searchBar.value = query;
+                    }
+                    window.searchController.handleSearch(query);
+                    searchHistoryContainer.style.display = "none";
+                };
+                
+                searchHistoryContainer.appendChild(historyItem);
+            });
         });
-        
-        // Enter key support - immediate search (no debounce)
-        searchBar.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter' || event.keyCode === 13) {
-                event.preventDefault();
-                // Clear any pending debounced search
-                if (searchTimeout) {
-                    clearTimeout(searchTimeout);
-                    searchTimeout = null;
-                }
-                // Execute search immediately
-                searcher();
-            }
-        });
-    }
-    
-    // Clear button event listener
-    const clearButton = document.getElementById('searchClearButton');
-    if (clearButton) {
-        clearButton.addEventListener('click', function() {
-            clearSearchBar();
-            hideAutocompleteDropdown();
-        });
-    }
-    
-    // Hide autocomplete when clicking outside
-    document.addEventListener('click', function(event) {
-        const autocompleteContainer = document.getElementById('autocompleteContainer');
-        const isClickInsideAutocomplete = autocompleteContainer && autocompleteContainer.contains(event.target);
-        const isClickInsideSearchBar = searchBar && searchBar.contains(event.target);
-        
-        if (!isClickInsideAutocomplete && !isClickInsideSearchBar) {
-            hideAutocompleteDropdown();
-        }
-    });
-    
-    // Filter and sort event listeners
-    const typeFilter = document.getElementById('typeFilter');
-    const sortSelect = document.getElementById('sortSelect');
-    const resetFiltersButton = document.getElementById('resetFiltersButton');
-    const filterBar = document.getElementById('filterBar');
-    
-    if (typeFilter) {
-        typeFilter.addEventListener('change', function() {
-            if (searchBar && searchBar.value) {
-                searcher();
-            }
-        });
-    }
-    
-    if (sortSelect) {
-        sortSelect.addEventListener('change', function() {
-            if (searchBar && searchBar.value) {
-                searcher();
-            }
-        });
-    }
-    
-    if (resetFiltersButton) {
-        resetFiltersButton.addEventListener('click', function() {
-            if (typeFilter) typeFilter.value = '';
-            if (sortSelect) sortSelect.value = '';
-            if (searchBar && searchBar.value) {
-                searcher();
-            }
-        });
-    }
-    
-    // Show filter bar when search is performed
-    if (filterBar) {
-        // Filter bar will be shown/hidden based on search activity
     }
 
     document.addEventListener('click', function(event) {
