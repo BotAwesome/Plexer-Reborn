@@ -52,13 +52,29 @@
       </nav>
       
       <!-- User Actions -->
-      <div class="p-4 border-t border-netflix-gray">
+      <div class="p-4 border-t border-netflix-gray space-y-2">
+        <!-- Server Info & Change -->
+        <div v-if="authStore.serverName" class="mb-2 px-4 py-2 bg-netflix-gray/50 rounded-lg">
+          <p class="text-xs text-gray-400">Aktueller Server:</p>
+          <p class="text-sm font-semibold truncate">{{ authStore.serverName }}</p>
+        </div>
+        
+        <button
+          @click="changeServer"
+          class="w-full flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-netflix-gray"
+        >
+          <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12l4-4m-4 4l4 4" />
+          </svg>
+          Server wechseln
+        </button>
+        
         <button
           @click="handleLogout"
           class="w-full flex items-center px-4 py-3 rounded-lg transition-colors hover:bg-netflix-gray text-red-400"
         >
           <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l-4-4m0 0l-4 4m4-4v12" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
           Abmelden
         </button>
@@ -79,6 +95,10 @@ const uiStore = useUIStore()
 const router = useRouter()
 
 const sidebarOpen = computed(() => uiStore.sidebarOpen)
+
+const changeServer = () => {
+  router.push('/server-select')
+}
 
 const handleLogout = () => {
   authStore.logout()
