@@ -2026,572 +2026,8 @@ function closeVideoPlayerPopup() {
         closeAnimatedPopup(videoPlayerPopup, false); // Inhalt nicht sofort leeren, falls Animation noch läuft
         // Stoppe und entferne das Video, um Ressourcen freizugeben
         setTimeout(() => { // Stelle sicher, dass es nach der Ausblendanimation passiert
-            // Cleanup VideoJSPlayer if exists
-            if (window.currentVideoPlayer) {
-                window.currentVideoPlayer.cleanup();
-                window.currentVideoPlayer = null;
-            }
             videoPlayerContainer.innerHTML = ""; 
         }, 250); 
-    }
-}
-
-// ============================================================================
-// VIDEO.JS PLAYER WITH FFMPEG.WASM SUPPORT
-// ============================================================================
-
-/**
- * VideoJSPlayer - Video.js wrapper with FFmpeg.wasm support
- * Features:
- * - Professional Video.js player with many options
- * - FFmpeg.wasm integration for client-side transcoding
- * - Audio track detection and management
- * - Multi-level fallback strategies
- * - Playback speed control, keyboard shortcuts, and more
- */
-class VideoJSPlayer {
-    constructor(container) {
-        this.container = container;
-        this.player = null;
-        this.ffmpeg = null;
-        this.isTranscoding = false;
-        this.transcodingProgress = 0;
-        this.audioTracks = [];
-        this.currentAudioTrack = null;
-        this.progressCallback = null;
-        this.errorCallback = null;
-        this.blobUrl = null;
-    }
-
-    /**
-     * Initialize Video.js player
-     * @param {Object} options - Video.js player options
-     * @returns {Promise<void>}
-     */
-    async init(options = {}) {
-        if (!this.container) {
-            throw new Error('Container element not provided');
-        }
-
-        // Check if Video.js is loaded
-        if (typeof videojs === 'undefined') {
-            throw new Error('Video.js is not loaded. Please include Video.js script.');
-        }
-
-        // Clear container
-        this.container.innerHTML = '';
-
-        // Create progress container
-        const progressContainer = document.createElement('div');
-        progressContainer.className = 'video-player-progress';
-        progressContainer.style.display = 'none';
-        progressContainer.innerHTML = `
-            <div class="progress-bar-container">
-                <div class="progress-bar-fill" style="width: 0%"></div>
-            </div>
-            <div class="progress-text">Preparing video...</div>
-        `;
-
-        // Create video element for Video.js
-        const videoElement = document.createElement('video');
-        videoElement.id = 'plexer-video-player-' + Date.now();
-        videoElement.className = 'video-js vjs-default-skin';
-        videoElement.setAttribute('preload', 'auto');
-        videoElement.setAttribute('data-setup', '{}');
-
-        this.container.appendChild(progressContainer);
-        this.container.appendChild(videoElement);
-
-        this.progressContainer = progressContainer;
-        this.progressBar = progressContainer.querySelector('.progress-bar-fill');
-        this.progressText = progressContainer.querySelector('.progress-text');
-
-        // Video.js player options
-        const playerOptions = {
-            controls: true,
-            autoplay: false,
-            preload: 'auto',
-            fluid: true,
-            responsive: true,
-            playbackRates: [0.5, 1, 1.25, 1.5, 2],
-            html5: {
-                vhs: {
-                    overrideNative: true
-                },
-                nativeVideoTracks: true,
-                nativeAudioTracks: true,
-                nativeTextTracks: true
-            },
-            ...options
-        };
-
-        // Initialize Video.js player
-        this.player = videojs(videoElement.id, playerOptions);
-
-        // Setup error handler
-        this.player.on('error', (e) => {
-            this.handleError(e);
-        });
-
-        // Setup audio track detection
-        this.player.on('loadedmetadata', () => {
-            this.setupAudioTracks();
-        });
-
-        // Setup keyboard shortcuts
-        this.setupKeyboardShortcuts();
-    }
-
-    /**
-     * Load and play video with transcoding support
-     * @param {string} url - Video URL
-     * @param {Object} options - Options (onProgress, onError, preferClientSide)
-     * @returns {Promise<void>}
-     */
-    async loadVideo(url, options = {}) {
-        if (!this.player) {
-            await this.init();
-        }
-
-        this.progressCallback = options.onProgress || null;
-        this.errorCallback = options.onError || null;
-        const preferClientSide = options.preferClientSide !== false; // Default: true
-
-        try {
-            // Show progress
-            this.showProgress(0, 'Loading video...');
-
-            // Try client-side transcoding first (default)
-            if (preferClientSide) {
-                try {
-                    await this.loadWithClientSideTranscoding(url);
-                    return;
-                } catch (error) {
-                    console.warn('Client-side transcoding failed, trying server-side:', error);
-                    // Fallback to server-side transcoding
-                }
-            }
-
-            // Try server-side transcoding
-            try {
-                await this.loadWithServerSideTranscoding(url);
-                return;
-            } catch (error) {
-                console.warn('Server-side transcoding failed, trying direct play:', error);
-                // Fallback to direct play
-            }
-
-            // Last resort: Direct play
-            await this.loadDirect(url);
-
-        } catch (error) {
-            this.handleError(error);
-            throw error;
-        }
-    }
-
-    /**
-     * Load video with client-side FFmpeg.wasm transcoding
-     * @param {string} url - Video URL
-     * @returns {Promise<void>}
-     */
-    async loadWithClientSideTranscoding(url) {
-        this.showProgress(0, 'Transcoding video in browser...');
-
-        // Load FFmpeg
-        const ffmpeg = await loadFFmpeg();
-        if (!ffmpeg) {
-            throw new Error('FFmpeg.wasm not available');
-        }
-        this.ffmpeg = ffmpeg;
-
-        // Setup progress handler
-        ffmpeg.on('progress', ({ progress }) => {
-            const percent = Math.round(progress * 100);
-            this.showProgress(percent, `Transcoding: ${percent}%`);
-            if (this.progressCallback) {
-                this.progressCallback(percent);
-            }
-        });
-
-        // Fetch video in chunks for streaming
-        const response = await fetch(url);
-        const reader = response.body.getReader();
-        const chunks = [];
-        let totalSize = 0;
-
-        // Read video in chunks
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            chunks.push(value);
-            totalSize += value.length;
-        }
-
-        // Combine chunks
-        const videoArray = new Uint8Array(totalSize);
-        let offset = 0;
-        for (const chunk of chunks) {
-            videoArray.set(chunk, offset);
-            offset += chunk.length;
-        }
-
-        // Write input file
-        await ffmpeg.writeFile('input.mp4', videoArray);
-
-        // Transcode: AC3 to AAC, keep video as-is
-        this.showProgress(50, 'Transcoding audio...');
-        await ffmpeg.exec([
-            '-i', 'input.mp4',
-            '-c:v', 'copy',  // Copy video stream (no re-encoding)
-            '-c:a', 'aac',   // Transcode audio to AAC
-            '-b:a', '192k',  // Audio bitrate
-            '-ac', '2',      // Stereo output
-            '-strict', 'experimental',
-            'output.mp4'
-        ]);
-
-        // Read output
-        this.showProgress(90, 'Finalizing...');
-        const data = await ffmpeg.readFile('output.mp4');
-
-        // Clean up FFmpeg files
-        await ffmpeg.deleteFile('input.mp4');
-        await ffmpeg.deleteFile('output.mp4');
-
-        // Create blob URL
-        const outputBlob = new Blob([data.buffer], { type: 'video/mp4' });
-        const blobUrl = URL.createObjectURL(outputBlob);
-
-        // Load video
-        this.videoElement.src = blobUrl;
-        this.videoElement.load();
-
-        this.showProgress(100, 'Ready');
-        setTimeout(() => this.hideProgress(), 500);
-
-        // Store blob URL for cleanup
-        this.blobUrl = blobUrl;
-    }
-
-    /**
-     * Load video with server-side transcoding
-     * @param {string} url - Video URL
-     * @returns {Promise<void>}
-     */
-    async loadWithServerSideTranscoding(url) {
-        this.showProgress(0, 'Requesting transcoded stream...');
-        const transcodedUrl = forceAudioTranscoding(url);
-        
-        return new Promise((resolve, reject) => {
-            // Load video into Video.js player
-            this.player.src({
-                src: transcodedUrl,
-                type: 'video/mp4'
-            });
-
-            const onCanPlay = () => {
-                this.player.off('canplay', onCanPlay);
-                this.player.off('error', onError);
-                this.showProgress(100, 'Ready');
-                setTimeout(() => this.hideProgress(), 500);
-                resolve();
-            };
-
-            const onError = (e) => {
-                this.player.off('canplay', onCanPlay);
-                this.player.off('error', onError);
-                reject(new Error('Server-side transcoding failed'));
-            };
-
-            this.player.on('canplay', onCanPlay);
-            this.player.on('error', onError);
-        });
-    }
-
-    /**
-     * Load video directly (no transcoding)
-     * @param {string} url - Video URL
-     * @returns {Promise<void>}
-     */
-    async loadDirect(url) {
-        this.showProgress(0, 'Loading video...');
-        
-        return new Promise((resolve, reject) => {
-            // Load video into Video.js player
-            this.player.src({
-                src: url,
-                type: 'video/mp4'
-            });
-
-            const onCanPlay = () => {
-                this.player.off('canplay', onCanPlay);
-                this.player.off('error', onError);
-                this.showProgress(100, 'Ready');
-                setTimeout(() => this.hideProgress(), 500);
-                resolve();
-            };
-
-            const onError = (e) => {
-                this.player.off('canplay', onCanPlay);
-                this.player.off('error', onError);
-                reject(new Error('Direct play failed'));
-            };
-
-            this.player.on('canplay', onCanPlay);
-            this.player.on('error', onError);
-        });
-    }
-
-    /**
-     * Setup audio tracks detection and management
-     */
-    setupAudioTracks() {
-        if (!this.player) return;
-
-        try {
-            const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
-            const videoElement = tech?.el();
-
-            if (videoElement) {
-                // Check for audio tracks API (limited browser support)
-                if (videoElement.audioTracks && videoElement.audioTracks.length > 0) {
-                    this.audioTracks = Array.from(videoElement.audioTracks);
-                    console.log(`Found ${this.audioTracks.length} audio track(s)`);
-                    
-                    // Try to find AAC track
-                    let aacTrack = this.audioTracks.find(track => {
-                        // Check if track is AAC (heuristic)
-                        return track.kind === 'main' || track.label?.toLowerCase().includes('aac');
-                    });
-                    
-                    if (aacTrack) {
-                        aacTrack.enabled = true;
-                        this.currentAudioTrack = aacTrack;
-                        console.log('Selected AAC audio track');
-                    } else if (this.audioTracks.length > 0) {
-                        // Enable first track
-                        this.audioTracks[0].enabled = true;
-                        this.currentAudioTrack = this.audioTracks[0];
-                        console.log('Selected first available audio track');
-                    }
-                }
-
-                // Monitor audio playback
-                this.player.on('play', () => {
-                    this.checkAudioPlayback();
-                });
-
-                // Check audio on loadedmetadata
-                this.player.on('loadedmetadata', () => {
-                    this.detectAudioCodec();
-                });
-            }
-
-        } catch (error) {
-            console.warn('Audio track detection not fully supported:', error);
-        }
-    }
-
-    /**
-     * Detect audio codec from video metadata
-     */
-    detectAudioCodec() {
-        if (!this.player) return;
-
-        const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
-        const videoElement = tech?.el();
-
-        if (videoElement) {
-            // Try to detect if audio is present
-            const hasAudio = videoElement.mozHasAudio !== false; // Firefox specific
-            
-            // Check video properties
-            if (videoElement.readyState >= 1) {
-                // Video has loaded metadata
-                console.log('Video metadata loaded');
-                
-                // If we suspect AC3 or unsupported codec, we should have transcoded already
-                // But check anyway
-                if (!hasAudio && videoElement.audioTracks?.length === 0) {
-                    console.warn('No audio detected in video element');
-                }
-            }
-        }
-    }
-
-    /**
-     * Check if audio is actually playing
-     */
-    checkAudioPlayback() {
-        if (!this.player) return;
-
-        const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
-        const videoElement = tech?.el();
-
-        if (videoElement) {
-            // Check if video has audio and is playing
-            setTimeout(() => {
-                const hasAudio = videoElement.mozHasAudio !== false; // Firefox
-                const audioTracks = videoElement.audioTracks;
-                
-                // Verify audio is actually playing
-                if (this.player.volume() > 0 && !this.player.muted()) {
-                    // Check if we can detect audio (browser-dependent)
-                    if (hasAudio === false || (audioTracks && audioTracks.length === 0 && !hasAudio)) {
-                        console.warn('Audio may not be playing correctly');
-                        // Show user notification
-                        showMessage('Warning: Audio may not be supported. Trying transcoding...', false);
-                    }
-                }
-            }, 2000);
-        }
-    }
-
-    /**
-     * Setup keyboard shortcuts for Video.js player
-     */
-    setupKeyboardShortcuts() {
-        if (!this.player) return;
-
-        // Space: Play/Pause
-        document.addEventListener('keydown', (e) => {
-            // Only handle if player is focused or video is playing
-            if (this.player && (this.player.hasFocus() || !this.player.paused())) {
-                if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-                    e.preventDefault();
-                    if (this.player.paused()) {
-                        this.player.play();
-                    } else {
-                        this.player.pause();
-                    }
-                }
-                // Arrow Left: Seek backward 10 seconds
-                else if (e.code === 'ArrowLeft' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-                    e.preventDefault();
-                    this.player.currentTime(this.player.currentTime() - 10);
-                }
-                // Arrow Right: Seek forward 10 seconds
-                else if (e.code === 'ArrowRight' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-                    e.preventDefault();
-                    this.player.currentTime(this.player.currentTime() + 10);
-                }
-                // Arrow Up: Volume up
-                else if (e.code === 'ArrowUp' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-                    e.preventDefault();
-                    this.player.volume(Math.min(1, this.player.volume() + 0.1));
-                }
-                // Arrow Down: Volume down
-                else if (e.code === 'ArrowDown' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-                    e.preventDefault();
-                    this.player.volume(Math.max(0, this.player.volume() - 0.1));
-                }
-                // M: Mute/Unmute
-                else if (e.code === 'KeyM' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-                    e.preventDefault();
-                    this.player.muted(!this.player.muted());
-                }
-                // F: Fullscreen
-                else if (e.code === 'KeyF' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-                    e.preventDefault();
-                    if (this.player.isFullscreen()) {
-                        this.player.exitFullscreen();
-                    } else {
-                        this.player.requestFullscreen();
-                    }
-                }
-            }
-        });
-    }
-
-    /**
-     * Show progress indicator
-     * @param {number} percent - Progress percentage (0-100)
-     * @param {string} text - Progress text
-     */
-    showProgress(percent, text) {
-        if (this.progressContainer) {
-            this.progressContainer.style.display = 'block';
-        }
-        if (this.progressBar) {
-            this.progressBar.style.width = percent + '%';
-        }
-        if (this.progressText) {
-            this.progressText.textContent = text || `Loading: ${percent}%`;
-        }
-    }
-
-    /**
-     * Hide progress indicator
-     */
-    hideProgress() {
-        if (this.progressContainer) {
-            this.progressContainer.style.display = 'none';
-        }
-    }
-
-    /**
-     * Handle errors with fallback strategies
-     * @param {Error|Event} error - Error object or event
-     */
-    handleError(error) {
-        console.error('Video player error:', error);
-        
-        const errorMessage = error.message || 'Unknown error occurred';
-        this.showProgress(0, `Error: ${errorMessage}`);
-        
-        if (this.errorCallback) {
-            this.errorCallback(error);
-        } else {
-            showMessage(`Video playback error: ${errorMessage}`, false);
-        }
-    }
-
-    /**
-     * Cleanup resources
-     */
-    cleanup() {
-        // Revoke blob URLs
-        if (this.blobUrl) {
-            URL.revokeObjectURL(this.blobUrl);
-            this.blobUrl = null;
-        }
-
-        // Dispose Video.js player
-        if (this.player) {
-            try {
-                this.player.dispose();
-            } catch (e) {
-                console.warn('Error disposing Video.js player:', e);
-            }
-            this.player = null;
-        }
-
-        // Clear container
-        if (this.container) {
-            this.container.innerHTML = '';
-        }
-
-        this.ffmpeg = null;
-        this.isTranscoding = false;
-    }
-
-    /**
-     * Get Video.js player instance for external access
-     * @returns {videojs.Player|null}
-     */
-    getPlayer() {
-        return this.player;
-    }
-
-    /**
-     * Get video element for external event listeners
-     * @returns {HTMLVideoElement|null}
-     */
-    getVideoElement() {
-        if (!this.player) return null;
-        const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
-        return tech?.el() || null;
     }
 }
 
@@ -2631,138 +2067,6 @@ function forceAudioTranscoding(url) {
     return urlObj.toString();
 }
 
-/**
- * Client-side transcoder using FFmpeg.wasm
- * Transcodes AC3 audio to AAC for browser compatibility
- * @param {string} videoUrl - URL of the video to transcode
- * @param {Function} onProgress - Progress callback (0-100)
- * @returns {Promise<Blob>} Transcoded video blob
- */
-let ffmpegInstance = null;
-let ffmpegLoaded = false;
-
-async function loadFFmpeg() {
-    if (ffmpegLoaded && ffmpegInstance) {
-        return ffmpegInstance;
-    }
-    
-    try {
-        // Dynamically import FFmpeg.wasm ES modules
-        const { FFmpeg } = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js');
-        const { toBlobURL } = await import('https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js');
-        
-        ffmpegInstance = new FFmpeg();
-        
-        // Set up logging (optional)
-        ffmpegInstance.on('log', ({ message }) => {
-            console.log('FFmpeg:', message);
-        });
-        
-        // Load FFmpeg core
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-        await ffmpegInstance.load({
-            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-        });
-        
-        ffmpegLoaded = true;
-        console.log('FFmpeg.wasm loaded successfully');
-        return ffmpegInstance;
-    } catch (error) {
-        console.error('Failed to load FFmpeg.wasm:', error);
-        console.warn('Falling back to server-side transcoding.');
-        return null;
-    }
-}
-
-/**
- * Transcode video using client-side FFmpeg (fallback if server transcoding fails)
- * Note: This is resource-intensive and may not work well for large files
- * @param {string} videoUrl - URL of the video
- * @param {Function} progressCallback - Progress callback
- * @returns {Promise<string>} Blob URL of transcoded video
- */
-async function transcodeVideoClientSide(videoUrl, progressCallback = null) {
-    try {
-        const ffmpeg = await loadFFmpeg();
-        if (!ffmpeg) {
-            throw new Error('FFmpeg.wasm not available');
-        }
-        
-        showMessage('Transcoding video in browser... This may take a while.', true);
-        
-        // Set up progress handler
-        if (progressCallback) {
-            ffmpeg.on('progress', ({ progress }) => {
-                if (progressCallback) {
-                    progressCallback(Math.round(progress * 100));
-                }
-            });
-        }
-        
-        // Fetch the video
-        const response = await fetch(videoUrl);
-        const videoBlob = await response.blob();
-        const videoArrayBuffer = await videoBlob.arrayBuffer();
-        
-        // Write input file
-        await ffmpeg.writeFile('input.mp4', new Uint8Array(videoArrayBuffer));
-        
-        // Transcode: AC3 to AAC, keep video as-is
-        await ffmpeg.exec([
-            '-i', 'input.mp4',
-            '-c:v', 'copy',  // Copy video stream (no re-encoding)
-            '-c:a', 'aac',   // Transcode audio to AAC
-            '-b:a', '192k',  // Audio bitrate
-            '-strict', 'experimental',
-            'output.mp4'
-        ]);
-        
-        // Read output
-        const data = await ffmpeg.readFile('output.mp4');
-        
-        // Clean up
-        await ffmpeg.deleteFile('input.mp4');
-        await ffmpeg.deleteFile('output.mp4');
-        
-        // Create blob URL
-        const outputBlob = new Blob([data.buffer], { type: 'video/mp4' });
-        const blobUrl = URL.createObjectURL(outputBlob);
-        
-        hideMessage();
-        return blobUrl;
-    } catch (error) {
-        console.error('Client-side transcoding failed:', error);
-        hideMessage();
-        throw error;
-    }
-}
-
-/**
- * Try client-side transcoding first (FFmpeg.wasm), fallback to server-side if needed
- * @param {string} originalUrl - Original video URL
- * @param {boolean} preferServerSide - If true, try server-side first (fallback mode)
- * @returns {Promise<string>} URL to use for video playback
- */
-async function getTranscodedVideoUrl(originalUrl, preferServerSide = false) {
-    if (preferServerSide) {
-        // Fallback: Use server-side transcoding
-        return forceAudioTranscoding(originalUrl);
-    } else {
-        // Default: Try client-side transcoding first (FFmpeg.wasm)
-        try {
-            const blobUrl = await transcodeVideoClientSide(originalUrl, (progress) => {
-                showMessage(`Transcoding: ${progress}%`, true);
-            });
-            return blobUrl;
-        } catch (error) {
-            console.warn('Client-side transcoding failed, falling back to server-side:', error);
-            // Fallback to server-side transcoding
-            return forceAudioTranscoding(originalUrl);
-        }
-    }
-}
-
 async function playMovieInline(movieUrl, movieTitle) {
     if (!videoPlayerPopup || !videoPlayerContainer) {
         console.error("Video player popup elements not found.");
@@ -2772,48 +2076,50 @@ async function playMovieInline(movieUrl, movieTitle) {
 
     showMessage("Loading movie '" + movieTitle + "'...");
     try {
-        // Cleanup previous player if exists
-        if (window.currentVideoPlayer) {
-            window.currentVideoPlayer.cleanup();
-            window.currentVideoPlayer = null;
-        }
+        // Die movieUrl wird direkt übergeben und enthält bereits den Token
+        // Keine weitere Fetch-Anfrage nötig, um die URL zu bekommen, es sei denn, wir bräuchten spezifische Container-Infos etc.
+        // Für dieses Beispiel gehen wir davon aus, die URL ist direkt abspielbar.
 
-        // Create new enhanced video player
-        const player = new EnhancedVideoPlayer(videoPlayerContainer);
-        await player.init();
+        videoPlayerContainer.innerHTML = ''; // Vorherigen Inhalt leeren
 
-        // Show popup
-        showAnimatedPopup(videoPlayerPopup);
-        hideMessage();
+        const videoElement = document.createElement('video');
+        videoElement.setAttribute('controls', 'true');
+        videoElement.setAttribute('autoplay', 'true'); 
+        videoElement.style.width = '100%'; 
+        videoElement.style.height = 'auto';
+        videoElement.style.maxHeight = 'calc(100vh - 150px)'; 
 
-        // Load video with transcoding
-        await player.loadVideo(movieUrl, {
-            preferClientSide: true, // Use FFmpeg.wasm by default
-            onProgress: (progress) => {
-                // Progress is handled internally by player
-            },
-            onError: (error) => {
-                console.error("Error playing video:", error);
-                showMessage("Error: Could not play '" + movieTitle + "'. " + error.message);
-            }
+        const sourceElement = document.createElement('source');
+        // Force audio transcoding to AAC for browser compatibility (AC3 is often not supported)
+        const transcodedUrl = forceAudioTranscoding(movieUrl);
+        sourceElement.setAttribute('src', transcodedUrl);
+        // Typ ist oft schwierig zu bestimmen, Browser können es oft selbst.
+        // Wir setzen einen gängigen Typ oder lassen ihn weg, damit der Browser entscheidet.
+        sourceElement.setAttribute('type', 'video/mp4'); // Annahme, kann fehlschlagen wenn nicht mp4
+
+        videoElement.appendChild(sourceElement);
+        videoElement.innerHTML += "Your browser does not support the video tag or the video format.";
+        
+        videoPlayerContainer.appendChild(videoElement);
+        
+        showAnimatedPopup(videoPlayerPopup); 
+        hideMessage(); 
+
+        videoElement.addEventListener('error', (e) => {
+            console.error("Error playing video:", e);
+            console.error("Video source URL:", movieUrl);
+            showMessage("Error: Could not play '" + movieTitle + "'. Format not supported or URL invalid.");
         });
 
-        // Get video element for event listeners
-        const videoElement = player.getVideoElement();
-        if (videoElement) {
-            // Mark as watched when video starts playing
-            videoElement.addEventListener('play', () => {
-                // Try to get mediaKey from currentMediaData if available
-                if (currentMediaData && currentMediaData.key) {
-                    markAsWatched(currentMediaData.key);
-                    // Update UI if detail view is open
-                    updateWatchedIconInUI(currentMediaData.key);
-                }
-            });
-        }
-
-        // Store player reference for cleanup
-        window.currentVideoPlayer = player;
+        // Mark as watched when video starts playing
+        videoElement.addEventListener('play', () => {
+            // Try to get mediaKey from currentMediaData if available
+            if (currentMediaData && currentMediaData.key) {
+                markAsWatched(currentMediaData.key);
+                // Update UI if detail view is open
+                updateWatchedIconInUI(currentMediaData.key);
+            }
+        });
 
     } catch (error) {
         showMessage("Error loading '" + movieTitle + "'. Check console.");
@@ -2831,7 +2137,6 @@ async function playEpisodeInline(episodeKey, episodeTitle) {
 
     showMessage("Loading episode '" + episodeTitle + "'...");
     try {
-        // Fetch episode metadata
         const episodeResponse = await fetch(localStorage.getItem('selected_url') + episodeKey + "?X-Plex-Token=" + localStorage.getItem('selected_token'));
         const episodeData = await episodeResponse.text();
         const parser = new DOMParser();
@@ -2854,54 +2159,52 @@ async function playEpisodeInline(episodeKey, episodeTitle) {
         const elementFile = encodeURI(/[^/]*$/.exec(fileAttr)[0]);
         const elementKeyPath = /^(.*[\/])/.exec(keyAttr)[1];
         const streamingUrl = localStorage.getItem("selected_url") + elementKeyPath + elementFile + "?X-Plex-Token=" + localStorage.getItem("selected_token");
+        // Für direktes Streaming im <video>-Tag ist der Parameter ?download=0 nicht ideal, da er den Download forciert.
+        // Plex URLs für direktes Streaming (transkodiert oder direkt) können komplexer sein und hängen von Client-Profilen ab.
+        // Wir versuchen es zunächst mit der direkten Datei-URL, die oft funktioniert, wenn der Browser das Format unterstützt.
 
-        // Cleanup previous player if exists
-        if (window.currentVideoPlayer) {
-            window.currentVideoPlayer.cleanup();
-            window.currentVideoPlayer = null;
-        }
+        videoPlayerContainer.innerHTML = ''; // Vorherigen Inhalt leeren
 
-        // Create new Video.js player
-        const player = new VideoJSPlayer(videoPlayerContainer);
-        await player.init({
-            controls: true,
-            autoplay: false,
-            preload: 'auto',
-            fluid: true,
-            responsive: true,
-            playbackRates: [0.5, 1, 1.25, 1.5, 2]
+        const videoElement = document.createElement('video');
+        videoElement.setAttribute('controls', 'true');
+        videoElement.setAttribute('autoplay', 'true'); // Optional: Video automatisch starten
+        videoElement.style.width = '100%'; // Für responsives Verhalten im Popup
+        videoElement.style.height = 'auto';
+        videoElement.style.maxHeight = 'calc(100vh - 150px)'; // Begrenzung der Höhe
+
+        const sourceElement = document.createElement('source');
+        // Force audio transcoding to AAC for browser compatibility (AC3 is often not supported)
+        const transcodedUrl = forceAudioTranscoding(streamingUrl);
+        sourceElement.setAttribute('src', transcodedUrl);
+        // Den Typ des Videos zu erraten ist schwierig. Man könnte versuchen, ihn aus 'container' im XML zu lesen.
+        // Für den Anfang lassen wir den Browser entscheiden oder setzen einen gängigen Typ.
+        // const containerType = partElement.getAttribute('container'); // z.B. 'mkv', 'mp4'
+        // if (containerType) sourceElement.setAttribute('type', 'video/' + containerType);
+        // Da MKV oft nicht direkt im Browser geht, wäre MP4 besser.
+        sourceElement.setAttribute('type', 'video/mp4'); // Sicherer Standard, auch wenn es nicht immer MP4 ist
+
+        videoElement.appendChild(sourceElement);
+        videoElement.innerHTML += "Your browser does not support the video tag or the video format."; // Fallback-Text
+        
+        videoPlayerContainer.appendChild(videoElement);
+        
+        showAnimatedPopup(videoPlayerPopup); // Das neue Popup anzeigen
+        hideMessage(); // Eventuelle vorherige Nachrichten ausblenden
+
+        videoElement.addEventListener('error', (e) => {
+            console.error("Error playing video:", e);
+            console.error("Video source URL:", streamingUrl);
+            showMessage("Error: Could not play '" + episodeTitle + "'. The format might not be supported or the URL is invalid.");
+            // Optional: Popup nach Fehler schließen oder Fehlermeldung im Popup anzeigen
+            // closeVideoPlayerPopup();
         });
 
-        // Show popup
-        showAnimatedPopup(videoPlayerPopup);
-        hideMessage();
-
-        // Load video with transcoding (FFmpeg.wasm will handle AC3 to AAC conversion)
-        await player.loadVideo(streamingUrl, {
-            preferClientSide: true, // Use FFmpeg.wasm by default for better audio support
-            onProgress: (progress) => {
-                // Progress is handled internally by player
-            },
-            onError: (error) => {
-                console.error("Error playing video:", error);
-                console.error("Video source URL:", streamingUrl);
-                showMessage("Error: Could not play '" + episodeTitle + "'. " + (error.message || 'Unknown error'));
-            }
+        // Mark as watched when video starts playing
+        videoElement.addEventListener('play', () => {
+            markAsWatched(episodeKey);
+            // Update UI if detail view is open
+            updateWatchedIconInUI(episodeKey);
         });
-
-        // Get Video.js player instance for event listeners
-        const videojsPlayer = player.getPlayer();
-        if (videojsPlayer) {
-            // Mark as watched when video starts playing
-            videojsPlayer.on('play', () => {
-                markAsWatched(episodeKey);
-                // Update UI if detail view is open
-                updateWatchedIconInUI(episodeKey);
-            });
-        }
-
-        // Store player reference for cleanup
-        window.currentVideoPlayer = player;
 
     } catch (error) {
         showMessage("Error loading '" + episodeTitle + "'. Check console.");
