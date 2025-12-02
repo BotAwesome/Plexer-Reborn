@@ -147,31 +147,47 @@ const getImageUrl = (path) => {
 }
 
 const getMovieStreamUrl = () => {
-  console.log('Movie media object:', props.media)
+  console.log('Movie media object:', JSON.parse(JSON.stringify(props.media)))
   
-  // Try different paths to find the part key
+  // The correct URL format is: /library/parts/{partId}/{timestamp}/{filename}
+  // We need to get the part key from Media.Part
   let partKey = null
   
   if (props.media.Media) {
     const media = Array.isArray(props.media.Media) ? props.media.Media[0] : props.media.Media
-    console.log('Media object:', media)
+    console.log('Media object:', JSON.parse(JSON.stringify(media)))
     
     if (media.Part) {
       const part = Array.isArray(media.Part) ? media.Part[0] : media.Part
-      console.log('Part object:', part)
-      partKey = part['@_key'] || part['@_id']
+      console.log('Part object:', JSON.parse(JSON.stringify(part)))
+      
+      // The key should be the full path including /library/parts/...
+      partKey = part['@_key']
+      
+      // If key is not available, construct it from id
+      if (!partKey && part['@_id']) {
+        const partId = part['@_id']
+        const file = part['@_file'] || ''
+        const filename = file.split('/').pop() || 'video.mkv'
+        // We need the timestamp, which might be in updatedAt or similar
+        const timestamp = props.media['@_updatedAt'] || Date.now()
+        partKey = `/library/parts/${partId}/${timestamp}/${encodeURIComponent(filename)}`
+      }
     }
-  }
-  
-  // Fallback to media key
-  if (!partKey) {
-    partKey = props.media['@_key'] || props.media['@_ratingKey']
   }
   
   console.log('Using partKey:', partKey)
   
+  // If we have a full path, use it directly
+  if (partKey && partKey.startsWith('/library/parts/')) {
+    const url = `${authStore.serverUrl}${partKey}?X-Plex-Token=${authStore.plexToken}`
+    console.log('Direct streaming URL:', url)
+    return videoService.forceAudioTranscoding(url)
+  }
+  
+  // Fallback to old method
   const url = getStreamingUrl(props.media['@_ratingKey'], partKey)
-  console.log('Streaming URL:', url)
+  console.log('Fallback streaming URL:', url)
   
   return videoService.forceAudioTranscoding(url)
 }
