@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { storage } from '@/utils/storage'
+import plexService from '@/services/plexService'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -41,6 +42,14 @@ export const useAuthStore = defineStore('auth', {
       }
     },
     
+    selectServer(server) {
+      this.setSelectedServer(server)
+      // Initialize Plex service with server and token
+      if (server && this.plexToken) {
+        plexService.init(server.uri, this.plexToken)
+      }
+    },
+    
     loadFromStorage() {
       const token = storage.local.get('plexToken')
       const servers = storage.local.get('plexServers') || []
@@ -56,6 +65,10 @@ export const useAuthStore = defineStore('auth', {
       
       if (selectedServer) {
         this.selectedServer = selectedServer
+        // Initialize Plex service if we have both server and token
+        if (token) {
+          plexService.init(selectedServer.uri, token)
+        }
       }
     },
     

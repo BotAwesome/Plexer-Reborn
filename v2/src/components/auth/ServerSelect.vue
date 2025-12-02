@@ -107,13 +107,19 @@ const loadServers = async () => {
   }
 }
 
-const selectServer = (server) => {
-  selectedServer.value = server
-  authStore.setSelectedServer(server)
-  showSuccess(`Server "${server.name}" ausgewählt`)
-  
-  // Navigate to search
-  router.push('/search')
+const selectServer = async (server) => {
+  try {
+    selectedServer.value = server
+    authStore.selectServer(server)
+    
+    showSuccess(`Server "${server.name}" ausgewählt`)
+    
+    // Navigate to search
+    router.push('/search')
+  } catch (err) {
+    error.value = 'Fehler beim Verbinden mit dem Server.'
+    showError(error.value)
+  }
 }
 
 onMounted(() => {
