@@ -68,25 +68,22 @@ class PlexService {
    */
   async authenticate(username, password) {
     try {
-      const response = await axios.post('https://plex.tv/users/sign_in.xml', {
-        user: {
-          login: username,
-          password: password
-        }
-      }, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
+      const response = await axios.post('https://plex.tv/users/sign_in.json', null, {
         auth: {
           username,
           password
+        },
+        headers: {
+          'X-Plex-Client-Identifier': 'plexer-reborn-v2',
+          'X-Plex-Product': 'Plexer-Reborn',
+          'X-Plex-Version': '2.0.0'
         }
       })
       
-      const data = parser.parse(response.data)
+      const data = response.data
       return {
-        token: data.user['@_authenticationToken'],
-        username: data.user['@_username']
+        token: data.user.authToken || data.user.authentication_token,
+        username: data.user.username
       }
     } catch (error) {
       console.error('Authentication error:', error)
@@ -97,26 +94,32 @@ class PlexService {
   /**
    * Get available servers for authenticated user
    */
-  async getServers() {
+  async getServers(token) {
     try {
-      const response = await axios.get('https://plex.tv/api/servers', {
+      const response = await axios.get('https://plex.tv/api/v2/resources', {
         headers: {
-          'X-Plex-Token': this.token
+          'X-Plex-Token': token || this.token,
+          'Accept': 'application/json'
+        },
+        params: {
+          includeHttps: 1,
+          includeRelay: 0
         }
       })
       
-      const data = parser.parse(response.data)
-      const servers = Array.isArray(data.MediaContainer.Server)
-        ? data.MediaContainer.Server
-        : [data.MediaContainer.Server]
+      const resources = response.data
+      const servers = resources.filter(r => r.provides === 'server' && r.owned === 1)
       
-      return servers.map(server => ({
-        name: server['@_name'],
-        uri: server['@_uri'],
-        address: server['@_address'],
-        port: server['@_port'],
-        version: server['@_version']
-      }))
+      return servers.map(server => {
+        const connection = server.connections?.find(c => c.local === false) || server.connections?.[0]
+        return {
+          name: server.name,
+          uri: connection?.uri || `http://${server.address}:${server.port}`,
+          address: connection?.address || server.address,
+          port: connection?.port || server.port,
+          version: server.productVersion
+        }
+      })
     } catch (error) {
       console.error('Get servers error:', error)
       throw error
@@ -192,4 +195,5 @@ class PlexService {
 }
 
 export default new PlexService()
+
 

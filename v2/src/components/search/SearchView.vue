@@ -38,3 +38,4 @@ const hasQuery = computed(() => searchStore.currentQuery.length > 0)
 const hasResults = computed(() => searchStore.hasResults)
 </script>
 
+

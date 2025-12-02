@@ -17,3 +17,4 @@ const uiStore = useUIStore()
 const sidebarOpen = computed(() => uiStore.sidebarOpen)
 </script>
 
+

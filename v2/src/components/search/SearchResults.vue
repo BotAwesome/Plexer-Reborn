@@ -60,13 +60,35 @@ const normalizedResults = computed(() => {
   const results = searchStore.lastResults
   if (!results || !results.MediaContainer) return []
   
-  const items = results.MediaContainer.Video || results.MediaContainer.Directory || []
-  return Array.isArray(items) ? items : [items]
+  const container = results.MediaContainer
+  let items = []
+  
+  // Handle different response structures
+  if (container.Metadata) {
+    items = Array.isArray(container.Metadata) ? container.Metadata : [container.Metadata]
+  } else if (container.Video) {
+    items = Array.isArray(container.Video) ? container.Video : [container.Video]
+  } else if (container.Directory) {
+    items = Array.isArray(container.Directory) ? container.Directory : [container.Directory]
+  }
+  
+  // Normalize items
+  return items.map(item => ({
+    id: item['@_ratingKey'] || item['@_key'],
+    ratingKey: item['@_ratingKey'] || item['@_key'],
+    key: item['@_key'],
+    type: item['@_type'],
+    title: item['@_title'],
+    year: item['@_year'],
+    thumb: item['@_thumb'] || item['@_art'],
+    summary: item['@_summary']
+  }))
 })
 
 const handleMediaClick = (media) => {
   const type = media.type === 'movie' ? 'movie' : 'show'
-  router.push(`/media/${type}/${media.ratingKey || media.key}`)
+  const id = media.ratingKey || media.id || media.key
+  router.push(`/media/${type}/${id}`)
 }
 
 const retrySearch = () => {
@@ -75,4 +97,5 @@ const retrySearch = () => {
   }
 }
 </script>
+
 
