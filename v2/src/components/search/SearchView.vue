@@ -39,3 +39,4 @@ const hasResults = computed(() => searchStore.hasResults)
 </script>
 
 
+

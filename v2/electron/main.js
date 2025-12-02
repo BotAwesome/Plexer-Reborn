@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron')
 const path = require('path')
-const isDev = process.env.NODE_ENV === 'development'
+const isDev = !app.isPackaged
 
 let mainWindow
 
@@ -57,4 +57,5 @@ ipcMain.handle('get-app-version', () => {
 ipcMain.handle('get-platform', () => {
   return process.platform
 })
+
 

@@ -15,6 +15,7 @@
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
+    "@tailwindcss/postcss": "^4.1.17",
     "axios": "^1.13.2",
     "dayjs": "^1.11.19",
     "fast-xml-parser": "^5.3.2",

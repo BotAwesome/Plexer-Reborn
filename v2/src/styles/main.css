@@ -1,14 +1,25 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 /* Plyr CSS */
 @import 'plyr/dist/plyr.css';
 
+/* Custom Theme */
+@theme {
+  --color-netflix-black: #000000;
+  --color-netflix-dark: #141414;
+  --color-netflix-gray: #2F2F2F;
+  --color-netflix-red: #E50914;
+  --color-netflix-white: #FFFFFF;
+  
+  --font-family-sans: Inter, system-ui, sans-serif;
+}
+
 /* Custom Styles */
 @layer base {
   body {
-    @apply bg-netflix-black text-netflix-white font-sans;
+    background-color: var(--color-netflix-black);
+    color: var(--color-netflix-white);
+    font-family: var(--font-family-sans);
   }
   
   * {
@@ -24,15 +35,16 @@
   }
   
   .custom-scrollbar::-webkit-scrollbar-track {
-    @apply bg-netflix-dark;
+    background-color: var(--color-netflix-dark);
   }
   
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-netflix-gray rounded;
+    background-color: var(--color-netflix-gray);
+    border-radius: 0.25rem;
   }
   
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-600;
+    background-color: #4B5563;
   }
   
   /* Fade-in animation */
@@ -81,22 +93,37 @@
   
   /* Skeleton loading */
   .skeleton {
-    @apply bg-netflix-gray animate-pulse rounded;
+    background-color: var(--color-netflix-gray);
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    border-radius: 0.25rem;
   }
   
   /* Focus styles */
   .focus-ring:focus {
-    @apply outline-none ring-2 ring-netflix-red ring-offset-2 ring-offset-netflix-black;
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-netflix-black), 0 0 0 4px var(--color-netflix-red);
   }
   
   /* Button hover effects */
   .btn-hover {
-    @apply transition-all duration-200 hover:scale-105 active:scale-95;
+    transition: all 0.2s;
+  }
+  
+  .btn-hover:hover {
+    transform: scale(1.05);
+  }
+  
+  .btn-hover:active {
+    transform: scale(0.95);
   }
   
   /* Card hover effects */
   .card-hover {
-    @apply transition-all duration-300 hover:shadow-xl hover:shadow-netflix-red/20;
+    transition: all 0.3s;
+  }
+  
+  .card-hover:hover {
+    box-shadow: 0 20px 25px -5px rgba(229, 9, 20, 0.2), 0 8px 10px -6px rgba(229, 9, 20, 0.2);
   }
 }
 
