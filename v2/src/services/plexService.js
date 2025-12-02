@@ -48,10 +48,7 @@ class PlexService {
     const url = `${this.baseURL}${endpoint}`
     const config = {
       headers: this.getHeaders(),
-      params: {
-        ...params,
-        'X-Plex-Token': this.token
-      }
+      params: params
     }
     
     try {
