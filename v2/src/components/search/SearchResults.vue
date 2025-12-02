@@ -58,22 +58,34 @@ const currentQuery = computed(() => searchStore.currentQuery)
 
 const normalizedResults = computed(() => {
   const results = searchStore.lastResults
-  if (!results || !results.MediaContainer) return []
+  console.log('Raw search results:', results)
+  
+  if (!results || !results.MediaContainer) {
+    console.log('No MediaContainer found')
+    return []
+  }
   
   const container = results.MediaContainer
+  console.log('MediaContainer:', container)
+  
   let items = []
   
   // Handle different response structures
   if (container.Metadata) {
     items = Array.isArray(container.Metadata) ? container.Metadata : [container.Metadata]
+    console.log('Found Metadata items:', items.length)
   } else if (container.Video) {
     items = Array.isArray(container.Video) ? container.Video : [container.Video]
+    console.log('Found Video items:', items.length)
   } else if (container.Directory) {
     items = Array.isArray(container.Directory) ? container.Directory : [container.Directory]
+    console.log('Found Directory items:', items.length)
   }
   
+  console.log('Items to normalize:', items)
+  
   // Normalize items
-  return items.map(item => ({
+  const normalized = items.map(item => ({
     id: item['@_ratingKey'] || item['@_key'],
     ratingKey: item['@_ratingKey'] || item['@_key'],
     key: item['@_key'],
@@ -83,6 +95,9 @@ const normalizedResults = computed(() => {
     thumb: item['@_thumb'] || item['@_art'],
     summary: item['@_summary']
   }))
+  
+  console.log('Normalized results:', normalized)
+  return normalized
 })
 
 const handleMediaClick = (media) => {
