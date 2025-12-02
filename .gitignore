@@ -1,4 +1,26 @@
 # Dokumentationsordner - nicht mit GitHub synchronisieren
 k9m2x4/
 
+# Node modules
+node_modules/
+v2/node_modules/
+
+# Build outputs
+v2/dist/
+v2/.vite/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
 

@@ -1,0 +1,26 @@
+{
+  "name": "plexer-reborn-v2",
+  "version": "2.0.0",
+  "description": "Plexer-Reborn V2 - Modern Vue 3 Plex Client",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
+    "axios": "^1.13.2",
+    "dayjs": "^1.11.19",
+    "fast-xml-parser": "^5.3.2",
+    "ffmpeg-static": "^5.3.0",
+    "hls.js": "^1.6.15",
+    "mitt": "^3.0.1",
+    "pinia": "^3.0.4",
+    "plyr": "^3.8.3",
+    "vue": "^3.5.25",
+    "vue-router": "^4.6.3"
+  }
+}
