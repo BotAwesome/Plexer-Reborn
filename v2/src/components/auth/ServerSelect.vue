@@ -20,24 +20,44 @@
         </button>
       </div>
       
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <button
-          v-for="server in servers"
-          :key="server.name"
-          @click="selectServer(server)"
-          :class="[
-            'p-6 bg-netflix-dark rounded-lg border-2 transition-all hover:border-netflix-red',
-            selectedServer?.name === server.name ? 'border-netflix-red' : 'border-netflix-gray'
-          ]"
-        >
-          <h3 class="text-xl font-semibold mb-2">{{ server.name }}</h3>
-          <p class="text-sm text-gray-400">{{ server.address }}:{{ server.port }}</p>
-          <p class="text-xs text-gray-500 mt-1">Version {{ server.version }}</p>
-        </button>
+      <div v-else>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button
+            v-for="server in servers"
+            :key="server.name"
+            @click="selectServer(server)"
+            :class="[
+              'p-6 bg-netflix-dark rounded-lg border-2 transition-all hover:border-netflix-red',
+              selectedServer?.name === server.name ? 'border-netflix-red' : 'border-netflix-gray'
+            ]"
+          >
+            <h3 class="text-xl font-semibold mb-2">{{ server.name }}</h3>
+            <p class="text-sm text-gray-400">{{ server.address }}:{{ server.port }}</p>
+            <p class="text-xs text-gray-500 mt-1">Version {{ server.version }}</p>
+          </button>
+        </div>
+        
+        <div class="mt-6 text-center">
+          <button
+            @click="loadServers"
+            class="px-4 py-2 bg-netflix-gray hover:bg-netflix-gray/80 rounded-lg transition-colors text-sm"
+          >
+            Server neu laden
+          </button>
+        </div>
       </div>
       
       <div v-if="error" class="mt-4 p-3 bg-red-900/50 border border-red-500 rounded-lg text-red-200 text-sm">
         {{ error }}
+      </div>
+      
+      <div class="mt-6 text-center">
+        <button
+          @click="router.push('/login')"
+          class="text-sm text-gray-400 hover:text-white transition-colors"
+        >
+          ← Zurück zum Login
+        </button>
       </div>
     </div>
   </div>
