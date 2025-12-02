@@ -35,7 +35,8 @@ import SeasonAccordion from './SeasonAccordion.vue'
 const props = defineProps({
   media: {
     type: Object,
-    required: true
+    required: false,
+    default: null
   }
 })
 

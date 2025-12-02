@@ -124,7 +124,8 @@ import VideoPlayer from '@/components/common/VideoPlayer.vue'
 const props = defineProps({
   media: {
     type: Object,
-    required: true
+    required: false,
+    default: null
   }
 })
 
