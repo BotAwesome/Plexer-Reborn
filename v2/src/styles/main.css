@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Plyr CSS */
+@import 'plyr/dist/plyr.css';
+
+/* Custom Styles */
+@layer base {
+  body {
+    @apply bg-netflix-black text-netflix-white font-sans;
+  }
+}
+
+@layer components {
+  /* Netflix-like scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-netflix-dark;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-netflix-gray rounded;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-600;
+  }
+}
+
