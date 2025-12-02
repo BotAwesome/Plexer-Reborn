@@ -147,8 +147,32 @@ const getImageUrl = (path) => {
 }
 
 const getMovieStreamUrl = () => {
-  const partKey = props.media.Media?.[0]?.Part?.[0]?.['@_key'] || props.media['@_key']
+  console.log('Movie media object:', props.media)
+  
+  // Try different paths to find the part key
+  let partKey = null
+  
+  if (props.media.Media) {
+    const media = Array.isArray(props.media.Media) ? props.media.Media[0] : props.media.Media
+    console.log('Media object:', media)
+    
+    if (media.Part) {
+      const part = Array.isArray(media.Part) ? media.Part[0] : media.Part
+      console.log('Part object:', part)
+      partKey = part['@_key'] || part['@_id']
+    }
+  }
+  
+  // Fallback to media key
+  if (!partKey) {
+    partKey = props.media['@_key'] || props.media['@_ratingKey']
+  }
+  
+  console.log('Using partKey:', partKey)
+  
   const url = getStreamingUrl(props.media['@_ratingKey'], partKey)
+  console.log('Streaming URL:', url)
+  
   return videoService.forceAudioTranscoding(url)
 }
 
