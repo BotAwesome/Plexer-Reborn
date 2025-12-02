@@ -111,16 +111,32 @@ class PlexService {
       })
       
       const resources = response.data
-      const servers = resources.filter(r => r.provides === 'server' && r.owned === 1)
+      console.log('All resources:', resources)
+      
+      // Filter for servers - check both 'server' and 'plex' provides
+      const servers = resources.filter(r => {
+        const isServer = r.provides === 'server' || r.product === 'Plex Media Server'
+        const isOwned = r.owned === 1 || r.owned === true
+        console.log(`Resource: ${r.name}, provides: ${r.provides}, product: ${r.product}, owned: ${r.owned}, isServer: ${isServer}, isOwned: ${isOwned}`)
+        return isServer && isOwned
+      })
+      
+      console.log('Filtered servers:', servers)
       
       return servers.map(server => {
-        const connection = server.connections?.find(c => c.local === false) || server.connections?.[0]
+        // Prefer non-local connections, fallback to local, then first available
+        const connection = server.connections?.find(c => c.local === false) || 
+                          server.connections?.find(c => c.local === true) ||
+                          server.connections?.[0]
+        
+        console.log(`Server: ${server.name}, connections:`, server.connections)
+        
         return {
           name: server.name,
-          uri: connection?.uri || `http://${server.address}:${server.port}`,
+          uri: connection?.uri || `http://${server.address || connection?.address}:${server.port || connection?.port}`,
           address: connection?.address || server.address,
           port: connection?.port || server.port,
-          version: server.productVersion
+          version: server.productVersion || server.version
         }
       })
     } catch (error) {
