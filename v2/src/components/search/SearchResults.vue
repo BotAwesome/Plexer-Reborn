@@ -1,8 +1,8 @@
 <template>
   <div>
     <!-- Loading State -->
-    <div v-if="isLoading" class="flex justify-center py-12">
-      <LoadingSpinner />
+    <div v-if="isLoading">
+      <SkeletonLoader />
     </div>
     
     <!-- Error State -->
@@ -45,7 +45,7 @@ import { useRouter } from 'vue-router'
 import { useSearchStore } from '@/stores/search'
 import { useSearch } from '@/composables/useSearch'
 import MediaCard from '@/components/common/MediaCard.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SkeletonLoader from '@/components/common/SkeletonLoader.vue'
 
 const router = useRouter()
 const searchStore = useSearchStore()

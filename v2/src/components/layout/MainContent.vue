@@ -2,7 +2,7 @@
   <main
     :class="[
       'transition-all duration-300',
-      sidebarOpen ? 'ml-64' : 'ml-0'
+      sidebarOpen ? 'md:ml-64 ml-0' : 'ml-0'
     ]"
   >
     <slot></slot>

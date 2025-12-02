@@ -1,11 +1,19 @@
 <template>
-  <aside
-    :class="[
-      'fixed left-0 top-0 h-full bg-netflix-dark z-50 transition-transform duration-300',
-      sidebarOpen ? 'translate-x-0' : '-translate-x-full',
-      'w-64 border-r border-netflix-gray'
-    ]"
-  >
+  <div>
+    <!-- Overlay for mobile -->
+    <div
+      v-if="sidebarOpen"
+      @click="handleLogout"
+      class="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+    ></div>
+    
+    <aside
+      :class="[
+        'fixed left-0 top-0 h-full bg-netflix-dark z-50 transition-all duration-300 ease-in-out',
+        sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full',
+        'w-64 border-r border-netflix-gray'
+      ]"
+    >
     <div class="flex flex-col h-full">
       <!-- Logo -->
       <div class="p-6 border-b border-netflix-gray">
@@ -57,6 +65,7 @@
       </div>
     </div>
   </aside>
+  </div>
 </template>
 
 <script setup>

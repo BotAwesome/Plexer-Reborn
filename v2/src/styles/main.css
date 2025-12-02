@@ -10,6 +10,10 @@
   body {
     @apply bg-netflix-black text-netflix-white font-sans;
   }
+  
+  * {
+    scroll-behavior: smooth;
+  }
 }
 
 @layer components {
@@ -29,6 +33,70 @@
   
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     @apply bg-gray-600;
+  }
+  
+  /* Fade-in animation */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  /* Slide-in animation */
+  @keyframes slideIn {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  
+  .slide-in {
+    animation: slideIn 0.3s ease-out;
+  }
+  
+  /* Pulse animation for loading */
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+  
+  .pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  /* Skeleton loading */
+  .skeleton {
+    @apply bg-netflix-gray animate-pulse rounded;
+  }
+  
+  /* Focus styles */
+  .focus-ring:focus {
+    @apply outline-none ring-2 ring-netflix-red ring-offset-2 ring-offset-netflix-black;
+  }
+  
+  /* Button hover effects */
+  .btn-hover {
+    @apply transition-all duration-200 hover:scale-105 active:scale-95;
+  }
+  
+  /* Card hover effects */
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-xl hover:shadow-netflix-red/20;
   }
 }
 

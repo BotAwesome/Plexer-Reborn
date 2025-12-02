@@ -1,6 +1,6 @@
 <template>
   <div
-    class="group relative bg-netflix-gray rounded-lg overflow-hidden cursor-pointer transition-transform hover:scale-105"
+    class="group relative bg-netflix-gray rounded-lg overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-netflix-red/20 fade-in"
     @click="$emit('click', media)"
   >
     <!-- Thumbnail -->
