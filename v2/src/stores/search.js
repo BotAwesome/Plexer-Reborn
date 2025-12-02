@@ -9,13 +9,18 @@ export const useSearchStore = defineStore('search', {
     currentFilters: {},
     currentSort: null,
     currentPage: 1,
-    lastResults: [],
+    lastResults: null,
     isLoading: false,
     error: null
   }),
   
   getters: {
-    hasResults: (state) => state.lastResults.length > 0,
+    hasResults: (state) => {
+      if (!state.lastResults) return false
+      if (Array.isArray(state.lastResults)) return state.lastResults.length > 0
+      // Check if it's an object with MediaContainer
+      return !!(state.lastResults.MediaContainer)
+    },
     history: () => {
       return storage.local.get('searchHistory') || []
     }
@@ -75,7 +80,7 @@ export const useSearchStore = defineStore('search', {
     },
     
     clearResults() {
-      this.lastResults = []
+      this.lastResults = null
       this.currentQuery = ''
       this.currentFilters = {}
       this.currentSort = null

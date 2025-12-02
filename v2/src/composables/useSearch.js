@@ -37,10 +37,15 @@ export function useSearch() {
         sort: sort
       }
       
+      console.log('Performing search for:', searchQuery, 'with options:', options)
       const results = await searchAPI(searchQuery, options)
+      console.log('Search API returned:', results)
+      
       searchStore.setResults(results)
       searchStore.setQuery(searchQuery)
       searchStore.addToHistory(searchQuery)
+      
+      console.log('Search store updated, lastResults:', searchStore.lastResults)
       
       return results
     } catch (error) {
