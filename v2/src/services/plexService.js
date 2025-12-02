@@ -99,6 +99,9 @@ class PlexService {
       const response = await axios.get('https://plex.tv/api/v2/resources', {
         headers: {
           'X-Plex-Token': token || this.token,
+          'X-Plex-Client-Identifier': 'plexer-reborn-v2',
+          'X-Plex-Product': 'Plexer-Reborn',
+          'X-Plex-Version': '2.0.0',
           'Accept': 'application/json'
         },
         params: {
