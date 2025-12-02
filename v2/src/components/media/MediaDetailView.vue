@@ -18,6 +18,7 @@
 import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMedia } from '@/composables/useMedia'
+import { useMediaStore } from '@/stores/media'
 import Header from '@/components/layout/Header.vue'
 import Sidebar from '@/components/layout/Sidebar.vue'
 import MainContent from '@/components/layout/MainContent.vue'
@@ -26,11 +27,12 @@ import MovieDetail from './MovieDetail.vue'
 import ShowDetail from './ShowDetail.vue'
 
 const route = useRoute()
+const mediaStore = useMediaStore()
 const { loadMediaDetails, loading } = useMedia()
 
 const mediaType = computed(() => route.params.type)
 const mediaId = computed(() => route.params.id)
-const currentMedia = computed(() => null) // Will be set by store
+const currentMedia = computed(() => mediaStore.currentMedia)
 
 onMounted(async () => {
   if (mediaId.value) {
